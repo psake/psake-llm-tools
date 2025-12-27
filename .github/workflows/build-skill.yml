@@ -1,0 +1,82 @@
+name: Build Skill Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g., v1.0.0)"
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create psake.skill archive
+        run: |
+          cd .claude/skills/psake
+          zip -r ./psake.skill .
+          mv psake.skill ../../..
+          cd ../../..
+          ls -lh psake.skill
+
+      - name: Upload skill artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: psake-skill
+          path: psake.skill
+          retention-days: 90
+
+      - name: Display package info
+        run: |
+          echo "## psake.skill Package Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **File:** psake.skill" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Size:** $(du -h psake.skill | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Contents:" >> $GITHUB_STEP_SUMMARY
+          unzip -l psake.skill >> $GITHUB_STEP_SUMMARY
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION: $VERSION" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: psake Skill ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: psake.skill
+          body: |
+            ## psake Claude Skill Package
+
+            This release contains the psake skill package for Claude Code Assistant.
+
+            ### Installation
+            Download `psake.skill` and add it to your Claude skills directory.
+
+            ### What's Inside
+            - Complete psake build automation documentation
+            - PowerShell module build patterns
+            - CI/CD integration examples
+            - Advanced features and task patterns
+          generate_release_notes: true
