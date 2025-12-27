@@ -1,0 +1,73 @@
+name: Release Checklist
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 1.0.0)"
+        required: true
+        type: string
+
+jobs:
+  checklist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate skill structure
+        working-directory: .claude/skills/psake
+        run: |
+          echo "## Skill Structure Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check required files exist
+          if [ -f "SKILL.md" ]; then
+            echo "✅ SKILL.md exists" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ SKILL.md missing" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Check frontmatter
+          if head -1 SKILL.md | grep -q "^---"; then
+            echo "✅ YAML frontmatter present" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ YAML frontmatter missing" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Check references directory
+          if [ -d "references" ]; then
+            echo "✅ references/ directory exists" >> $GITHUB_STEP_SUMMARY
+            for f in references/*.md; do
+              echo "  - $(basename $f)" >> $GITHUB_STEP_SUMMARY
+            done
+          fi
+
+          # Line counts
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### File Sizes" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Lines |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          wc -l SKILL.md references/*.md 2>/dev/null | while read lines file; do
+            if [ "$file" != "total" ]; then
+              echo "| $file | $lines |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Manual testing reminder
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Manual Testing Required" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Before releasing v${{ inputs.version }}, complete the test scenarios in [tests/TESTING.md](tests/TESTING.md):" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Scenario 1: PowerShell Module Build" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Scenario 2: .NET Solution Build" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Scenario 3: File Management Automation" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Scenario 4: Dynamic Task Generation" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Scenario 5: CI/CD Integration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Record results in a comment on this workflow run or in the release notes." >> $GITHUB_STEP_SUMMARY

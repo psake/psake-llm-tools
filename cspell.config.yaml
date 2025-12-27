@@ -1,0 +1,17 @@
+version: "0.2"
+ignorePaths: []
+dictionaryDefinitions: []
+dictionaries: []
+words: ["Anthropic", "psake", "psakefile.ps1"]
+ignoreWords:
+  [
+    "psake",
+    "psakellmtools",
+    "Anthropic",
+    "claude",
+    "skillmd",
+    "SKILLmd",
+    "Anthropic",
+    "psake-llm-tools",
+  ]
+import: []
