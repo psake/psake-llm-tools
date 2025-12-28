@@ -1,0 +1,50 @@
+name: Skill PR Checklist
+
+on:
+  pull_request:
+    types: [opened]
+    paths:
+      - '.claude/skills/psake/**'
+
+jobs:
+  checklist-reminder:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Add checklist comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = `## 📝 Skill Changes Detected
+
+            Thank you for contributing to the psake skill! Please ensure you've addressed the following:
+
+            ### ✅ Validation Checklist
+
+            - [ ] \`SKILL.md\` structure and frontmatter are valid
+            - [ ] All code examples are tested and working
+            - [ ] Documentation follows existing style
+            - [ ] No broken internal references
+
+            ### 🧪 Testing Scenarios
+
+            Please test relevant scenarios from [TESTING.md](../blob/main/TESTING.md):
+
+            - [ ] PowerShell Module Build
+            - [ ] .NET Solution Build  
+            - [ ] File Management Automation
+            - [ ] Dynamic Task Generation
+            - [ ] CI/CD Integration
+
+            ---
+
+            💡 **Tip:** You can also use the [skill-changes PR template](../blob/main/.github/PULL_REQUEST_TEMPLATE/skill-changes.md) for a complete checklist.`;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
