@@ -5,7 +5,7 @@ agents. Contributions are welcome!
 
 ## psake Skill
 
-A Claude skill for [psake](https://psake.dev), the PowerShell build automation tool.
+A [agent skill](https://agentskills.io/) for [psake](https://psake.dev), the PowerShell build automation tool.
 
 ## Installation
 
