@@ -1,22 +1,40 @@
-# psake LLM Tools
+# psake-tools
 
-This will be a collection of tools/files that can be used with different LLM
-agents. Contributions are welcome!
+A collection of Claude skills for the [psake](https://psake.dev) PowerShell build automation ecosystem.
+Contributions are welcome!
 
-## psake Skill
+## Skills
 
-A [agent skill](https://agentskills.io/) for [psake](https://psake.dev), the PowerShell build automation tool.
+| Skill | Description |
+|-------|-------------|
+| **psake** | Task-based build automation for .NET, Node.js, Docker, and more |
+| **PowerShellBuild** | Standardized build/test/publish tasks for PowerShell module development |
 
 ## Installation
 
-Download `psake.skill` from the [releases page](https://github.com/psake/psake-llm-tools/releases) and upload it to Claude.
+### Marketplace (recommended)
+
+Add the marketplace in Claude Code, then install whichever skills you need:
+
+```
+/plugin marketplace add https://github.com/psake/psake-llm-tools
+```
+
+Once added, install individual skills with `/plugin install`.
+
+### Direct download (.skill files)
+
+Download a `.skill` file from the [releases page](https://github.com/psake/psake-llm-tools/releases)
+and upload it directly to Claude. Both installation methods are supported and kept in sync.
+
+## psake Skill
 
 ### What's Included
 
-- **SKILL.md** - Core psake patterns, commands, and troubleshooting
-- **references/powershell-modules.md** - PowerShellBuild module for PS module development
-- **references/build-types.md** - .NET, Node.js, Docker build patterns
-- **references/advanced.md** - Dynamic tasks, custom logging, CI/CD integration
+- **SKILL.md** — Core psake patterns, commands, and troubleshooting
+- **references/powershell-modules.md** — PowerShellBuild module for PS module development
+- **references/build-types.md** — .NET, Node.js, Docker build patterns
+- **references/advanced.md** — Dynamic tasks, custom logging, CI/CD integration
 
 ### Usage Examples
 
@@ -27,12 +45,58 @@ Ask Claude to:
 - "Generate a psakefile that creates tasks dynamically from a config file"
 - "Add CI/CD integration to my existing psakefile"
 
-### Development
+## PowerShellBuild Skill
 
-#### Running Tests
+### What's Included
 
-There's not a good framework for testing skills yet. For now, please follow the
-instructions in [testing document](TESTING.md).
+- **SKILL.md** — PSBPreference configuration, task reference, complete project examples, CI/CD patterns
+
+### Usage Examples
+
+Ask Claude to:
+
+- "Set up PowerShellBuild for my PowerShell module"
+- "Configure code coverage thresholds in my PowerShellBuild project"
+- "Help me publish my module to PSGallery using PowerShellBuild"
+- "Generate a psakeFile.ps1 using PowerShellBuild tasks"
+
+## Development
+
+### Testing locally
+
+Clone the repo, then add the marketplace using a local path:
+
+```
+/plugin marketplace add ./
+```
+
+> Note: `./` is required — `.` alone will not work.
+
+Install individual plugins to test them:
+
+```
+/plugin install psake@psake-tools
+/plugin install powershellbuild@psake-tools
+```
+
+### Running Tests
+
+Follow the instructions in [TESTING.md](TESTING.md).
+
+### Repository Structure
+
+```
+psake-llm-tools/
+├── .claude-plugin/
+│   └── marketplace.json        # Marketplace definition
+├── plugins/
+│   ├── psake/
+│   │   └── skills/psake/       # psake skill source
+│   └── powershellbuild/
+│       └── skills/powershellbuild/  # PowerShellBuild skill source
+└── .github/
+    └── workflows/              # CI: builds .skill release packages
+```
 
 ## License
 

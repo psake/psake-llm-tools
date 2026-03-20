@@ -1,0 +1,39 @@
+{
+  "name": "psake-tools",
+  "owner": {
+    "name": "psake",
+    "email": "hello@psake.dev"
+  },
+  "metadata": {
+    "description": "Claude skills for the psake PowerShell build automation ecosystem",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "psake",
+      "source": "./plugins/psake",
+      "description": "psake PowerShell build automation — task-based build scripts for .NET, Node.js, Docker, and more",
+      "author": {
+        "name": "psake",
+        "email": "hello@psake.dev"
+      },
+      "homepage": "https://psake.dev",
+      "repository": "https://github.com/psake/psake-llm-tools",
+      "license": "MIT",
+      "keywords": ["psake", "powershell", "build", "automation"]
+    },
+    {
+      "name": "powershellbuild",
+      "source": "./plugins/powershellbuild",
+      "description": "PowerShellBuild — standardized build, test, and publish tasks for PowerShell module development",
+      "author": {
+        "name": "psake",
+        "email": "hello@psake.dev"
+      },
+      "homepage": "https://github.com/psake/PowerShellBuild",
+      "repository": "https://github.com/psake/psake-llm-tools",
+      "license": "MIT",
+      "keywords": ["powershellbuild", "powershell", "module", "pester", "psscriptanalyzer"]
+    }
+  ]
+}
