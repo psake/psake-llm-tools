@@ -1,0 +1,23 @@
+{
+  "skill_name": "psake",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm building a PowerShell module called 'AzureHelper' that has Public and Private function folders and Pester tests. Can you create a psakefile.ps1 for it that builds, runs tests with PSScriptAnalyzer, and publishes to PSGallery? I want to be able to run './build.ps1 Publish' in CI.",
+      "expected_output": "A psakefile.ps1 using PowerShellBuild (-FromModule) with Clean, Build, Test, Publish tasks and a build.ps1 entry point. Should use PSBPreference for config and reference exec for CI publish step with PSGALLERY_API_KEY.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I have a .NET 8 solution with two projects — a web API in src/Api and a class library in src/Core. I want a psakefile that restores, builds in Release mode, runs all xUnit tests with a TRX report, and packs NuGet packages. The version should come from an environment variable $env:BUILD_VERSION or default to '0.0.1'.",
+      "expected_output": "A psakefile.ps1 with Properties block (SrcDir, BuildDir, Configuration, Version), and tasks: Clean, Restore, Build, Test (with dotnet test --logger trx), Pack. Version logic uses $env:BUILD_VERSION with fallback. All external commands wrapped in exec {}.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I've got a monorepo with a bunch of microservices, each in their own folder under ./services. Each one has its own Dockerfile. I want a psakefile that dynamically creates a Build and Push task for each service at startup, plus a BuildAll and PushAll task that runs them all. The Docker registry should come from $env:REGISTRY.",
+      "expected_output": "A psakefile.ps1 that uses Get-ChildItem to enumerate ./services directories, dynamically creates Task blocks with .GetNewClosure() for each, then defines BuildAll/PushAll with -depends on the generated task names. Uses Assert to validate $env:REGISTRY.",
+      "files": []
+    }
+  ]
+}

@@ -28,9 +28,10 @@ properties {
     $PSBPreference.Test.CodeCoverage.Enabled = $false
 }
 
-task default -depends Build
+task default -depends Test
 
-task Build -FromModule PowerShellBuild -Version '0.7.0'
+task Test    -FromModule PowerShellBuild
+task Publish -FromModule PowerShellBuild
 ```
 
 This single file gives you: Init → Clean → StageFiles → BuildHelp → Build → Analyze → Pester → Test → Publish
@@ -130,21 +131,37 @@ MyModule/
 ### build.ps1 (Entry Point)
 
 ```powershell
-[CmdletBinding()]
+[cmdletbinding(DefaultParameterSetName = 'Task')]
 param(
-    [string[]]$Task = 'default'
+    [parameter(ParameterSetName = 'Task', position = 0)]
+    [string[]]$Task = 'default',
+
+    [switch]$Bootstrap,
+
+    [parameter(ParameterSetName = 'Help')]
+    [switch]$Help
 )
 
-# Bootstrap dependencies
-if (-not (Get-Module -ListAvailable PSDepend)) {
-    Install-Module PSDepend -Scope CurrentUser -Force
-}
-Import-Module PSDepend
-Invoke-PSDepend -Path ./requirements.psd1 -Install -Force
+$ErrorActionPreference = 'Stop'
 
-# Run build
-Invoke-psake -buildFile ./psakeFile.ps1 -taskList $Task -Verbose:$VerbosePreference
-exit ([int](-not $psake.build_success))
+if ($Bootstrap.IsPresent) {
+    Get-PackageProvider -Name Nuget -ForceBootstrap | Out-Null
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+    if (-not (Get-Module -Name PSDepend -ListAvailable)) {
+        Install-Module -Name PSDepend -Repository PSGallery -Scope CurrentUser
+    }
+    Import-Module -Name PSDepend -Verbose:$false
+    Invoke-PSDepend -Path './requirements.psd1' -Install -Import -Force -WarningAction SilentlyContinue
+}
+
+$psakeFile = './psakeFile.ps1'
+if ($PSCmdlet.ParameterSetName -eq 'Help') {
+    Get-PSakeScriptTasks -buildFile $psakeFile | Format-Table -Property Name, Description
+} else {
+    Set-BuildEnvironment -Force
+    Invoke-psake -buildFile $psakeFile -taskList $Task -Verbose:$VerbosePreference
+    exit ([int](-not $psake.build_success))
+}
 ```
 
 ### requirements.psd1
