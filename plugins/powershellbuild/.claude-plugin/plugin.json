@@ -1,0 +1,4 @@
+{
+  "name": "powershellbuild",
+  "description": "PowerShellBuild — standardized build, test, and publish tasks for PowerShell module development"
+}
