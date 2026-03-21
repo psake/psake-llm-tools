@@ -1,0 +1,175 @@
+{
+  "metadata": {
+    "skill_name": "powershellbuild",
+    "skill_path": "D:/psake-llm-tools/plugins/powershellbuild/skills/powershellbuild",
+    "executor_model": "claude-sonnet-4-6",
+    "analyzer_model": "claude-sonnet-4-6",
+    "timestamp": "2026-03-20T22:30:00Z",
+    "evals_run": ["psb-new-module-scaffold", "psb-github-actions-ci", "psb-invoke-build"],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "eval_name": "psb-new-module-scaffold",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 73.2,
+        "tokens": 15390,
+        "tool_calls": 6,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Generates all three required files: build.ps1, psakeFile.ps1, and requirements.psd1", "passed": true, "evidence": "All three files present in outputs directory"},
+        {"text": "psakeFile.ps1 uses -FromModule PowerShellBuild pattern for task definitions", "passed": true, "evidence": "task Clean/Build/Test/Publish -FromModule PowerShellBuild on lines 30-35"},
+        {"text": "Code coverage threshold set to 0.80 (80%) in PSBPreference", "passed": true, "evidence": "$PSBPreference.Test.CodeCoverage.Threshold = 0.80"},
+        {"text": "PSScriptAnalyzer explicitly enabled via PSBPreference.Test.ScriptAnalysis.Enabled", "passed": true, "evidence": "$PSBPreference.Test.ScriptAnalysis.Enabled = $true"},
+        {"text": "requirements.psd1 includes psake, PowerShellBuild, Pester, and PSScriptAnalyzer", "passed": true, "evidence": "All four dependencies present in requirements.psd1"}
+      ]
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "psb-new-module-scaffold",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6,
+        "passed": 3,
+        "failed": 2,
+        "total": 5,
+        "time_seconds": 85.9,
+        "tokens": 12898,
+        "tool_calls": 5,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Generates all three required files: build.ps1, psakeFile.ps1, and requirements.psd1", "passed": true, "evidence": "All three files present"},
+        {"text": "psakeFile.ps1 uses -FromModule PowerShellBuild pattern for task definitions", "passed": false, "evidence": "Uses Invoke-PSBTask delegation pattern instead of -FromModule"},
+        {"text": "Code coverage threshold set to 0.80 (80%) in PSBPreference", "passed": true, "evidence": "Threshold = 0.80 set in PSBPreference hashtable"},
+        {"text": "PSScriptAnalyzer explicitly enabled via PSBPreference.Test.ScriptAnalysis.Enabled", "passed": false, "evidence": "Uses non-standard $PSBPreference.Lint.Enabled instead of .Test.ScriptAnalysis.Enabled"},
+        {"text": "requirements.psd1 includes psake, PowerShellBuild, Pester, and PSScriptAnalyzer", "passed": true, "evidence": "All four dependencies present"}
+      ]
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "psb-github-actions-ci",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 47.7,
+        "tokens": 14144,
+        "tool_calls": 4,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Workflow has two separate jobs: one for testing and one for publishing", "passed": true, "evidence": "Two jobs: test and publish defined"},
+        {"text": "Test job triggers on both push and pull_request events", "passed": true, "evidence": "on: push and pull_request with branches: ['**']"},
+        {"text": "Publish job only runs when branch is main (via if condition)", "passed": true, "evidence": "if: github.ref == 'refs/heads/main'"},
+        {"text": "PSGALLERY_API_KEY passed from GitHub secrets as an env var", "passed": true, "evidence": "PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }} under env"},
+        {"text": "Workflow calls ./build.ps1 (not Invoke-psake directly)", "passed": true, "evidence": "Both test and publish steps run ./build.ps1"}
+      ]
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "psb-github-actions-ci",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 49.8,
+        "tokens": 10159,
+        "tool_calls": 4,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Workflow has two separate jobs: one for testing and one for publishing", "passed": true, "evidence": "Two jobs: test and publish defined"},
+        {"text": "Test job triggers on both push and pull_request events", "passed": true, "evidence": "on: push and pull_request with branches: ['**']"},
+        {"text": "Publish job only runs when branch is main (via if condition)", "passed": true, "evidence": "if: github.ref == 'refs/heads/main' && github.event_name == 'push'"},
+        {"text": "PSGALLERY_API_KEY passed from GitHub secrets as an env var", "passed": true, "evidence": "PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }} present"},
+        {"text": "Workflow calls ./build.ps1 (not Invoke-psake directly)", "passed": false, "evidence": "Calls Invoke-Build -Task Test/Publish directly, no ./build.ps1"}
+      ]
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "psb-invoke-build",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 56.4,
+        "tokens": 14453,
+        "tool_calls": 4,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Uses . PowerShellBuild.IB.Tasks to load Invoke-Build tasks (not -FromModule)", "passed": true, "evidence": ". PowerShellBuild.IB.Tasks on line 30"},
+        {"text": "CompileModule set to $true to merge into single PSM1", "passed": true, "evidence": "$PSBPreference.Build.CompileModule = $true"},
+        {"text": "CompileDirectories includes Classes, Private, and Public", "passed": true, "evidence": "$PSBPreference.Build.CompileDirectories = @('Classes', 'Private', 'Public')"},
+        {"text": "Exclude pattern set to filter out *.Tests.ps1 files", "passed": true, "evidence": "$PSBPreference.Build.Exclude = @('*.Tests.ps1')"},
+        {"text": "Code coverage enabled via PSBPreference.Test.CodeCoverage.Enabled", "passed": true, "evidence": "$PSBPreference.Test.CodeCoverage.Enabled = $true"}
+      ]
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "psb-invoke-build",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.0,
+        "passed": 0,
+        "failed": 5,
+        "total": 5,
+        "time_seconds": 100.5,
+        "tokens": 13492,
+        "tool_calls": 4,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Uses . PowerShellBuild.IB.Tasks to load Invoke-Build tasks (not -FromModule)", "passed": false, "evidence": "Built all tasks from scratch — no PowerShellBuild.IB.Tasks anywhere"},
+        {"text": "CompileModule set to $true to merge into single PSM1", "passed": false, "evidence": "Custom CompileModule task implemented manually, no PSBPreference"},
+        {"text": "CompileDirectories includes Classes, Private, and Public", "passed": false, "evidence": "Hardcoded $Script:SourceFolders variable, no PSBPreference.Build.CompileDirectories"},
+        {"text": "Exclude pattern set to filter out *.Tests.ps1 files", "passed": false, "evidence": "Custom Get-SourceFiles helper with Where-Object, no PSBPreference.Build.Exclude"},
+        {"text": "Code coverage enabled via PSBPreference.Test.CodeCoverage.Enabled", "passed": false, "evidence": "Pester v5 New-PesterConfiguration used directly, no PSBPreference.Test.CodeCoverage"}
+      ]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0},
+      "time_seconds": {"mean": 59.1, "stddev": 13.0, "min": 47.7, "max": 73.2},
+      "tokens": {"mean": 14662, "stddev": 661, "min": 14144, "max": 15390}
+    },
+    "without_skill": {
+      "pass_rate": {"mean": 0.467, "stddev": 0.404, "min": 0.0, "max": 0.8},
+      "time_seconds": {"mean": 78.7, "stddev": 26.1, "min": 49.8, "max": 100.5},
+      "tokens": {"mean": 12183, "stddev": 1790, "min": 10159, "max": 13492}
+    },
+    "delta": {
+      "pass_rate": "+0.53",
+      "time_seconds": "-19.6",
+      "tokens": "+2479"
+    }
+  },
+  "notes": [
+    "Eval 3 (Invoke-Build) shows the starkest gap: 5/5 with skill vs 0/5 without — without the skill Claude writes functionally correct code but completely bypasses PowerShellBuild conventions",
+    "Eval 2 (GitHub Actions CI) shows the smallest gap (5/5 vs 4/5) — GitHub Actions YAML is well-known; the one miss is calling Invoke-Build directly instead of ./build.ps1",
+    "The skill actually reduces execution time by ~20s on average — likely because it front-loads the right approach instead of Claude exploring alternatives",
+    "Zero variance in with_skill pass rates (all 1.0) vs high variance without skill (0.0-0.8, stddev 0.40) — skill makes behavior highly consistent",
+    "The without_skill scaffold invented a non-existent PSBPreference.Lint.Enabled key — the skill prevents hallucinated API usage"
+  ]
+}

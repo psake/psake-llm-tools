@@ -1,0 +1,175 @@
+{
+  "metadata": {
+    "skill_name": "psake",
+    "skill_path": "D:/psake-llm-tools/plugins/psake/skills/psake",
+    "executor_model": "claude-sonnet-4-6",
+    "analyzer_model": "claude-sonnet-4-6",
+    "timestamp": "2026-03-20T22:30:00Z",
+    "evals_run": ["psake-module-build", "psake-dotnet-build", "psake-dynamic-docker"],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "eval_name": "psake-module-build",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 86.8,
+        "tokens": 17961,
+        "tool_calls": 10,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Uses -FromModule PowerShellBuild for task definitions rather than hand-coding build logic", "passed": true, "evidence": "psakefile.ps1 wires all three tasks with -FromModule PowerShellBuild -Version '0.7.0'"},
+        {"text": "Generates a build.ps1 entry point file (not just psakefile.ps1)", "passed": true, "evidence": "build.ps1 is present in the outputs directory"},
+        {"text": "Publish task reads PSGALLERY_API_KEY from environment variable", "passed": true, "evidence": "$PSBPreference.Publish.PSRepositoryApiKey = $env:PSGALLERY_API_KEY"},
+        {"text": "External commands are wrapped in exec {} blocks", "passed": false, "evidence": "No exec {} blocks present — build logic delegated to PowerShellBuild via -FromModule, so no raw external commands to wrap"},
+        {"text": "PSScriptAnalyzer is explicitly enabled via PSBPreference", "passed": true, "evidence": "$PSBPreference.Test.ScriptAnalysis.Enabled = $true is set"}
+      ],
+      "notes": ["exec-wrapping assertion is a false negative — -FromModule delegation means there are no raw external commands to wrap"]
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "psake-module-build",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.2,
+        "passed": 1,
+        "failed": 4,
+        "total": 5,
+        "time_seconds": 105.8,
+        "tokens": 14111,
+        "tool_calls": 5,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Uses -FromModule PowerShellBuild for task definitions rather than hand-coding build logic", "passed": false, "evidence": "Fully hand-coded tasks — no -FromModule PowerShellBuild anywhere"},
+        {"text": "Generates a build.ps1 entry point file (not just psakefile.ps1)", "passed": true, "evidence": "build.ps1 is present"},
+        {"text": "Publish task reads PSGALLERY_API_KEY from environment variable", "passed": false, "evidence": "Reads $env:NUGET_API_KEY, not $env:PSGALLERY_API_KEY"},
+        {"text": "External commands are wrapped in exec {} blocks", "passed": false, "evidence": "No exec {} blocks — external commands called directly"},
+        {"text": "PSScriptAnalyzer is explicitly enabled via PSBPreference", "passed": false, "evidence": "No PSBPreference usage — PSScriptAnalyzer invoked manually via Invoke-ScriptAnalyzer"}
+      ]
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "psake-dotnet-build",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 77.1,
+        "tokens": 16628,
+        "tool_calls": 7,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Version property reads $env:BUILD_VERSION with a fallback default of '0.0.1'", "passed": true, "evidence": "$Version = if ($env:BUILD_VERSION) { $env:BUILD_VERSION } else { '0.0.1' }"},
+        {"text": "Has a Properties {} block defining SrcDir/BuildDir/Configuration/Version", "passed": true, "evidence": "Properties block defines all four variables"},
+        {"text": "dotnet test uses --logger for TRX output", "passed": true, "evidence": "--logger \"trx;LogFileName=results.trx\" inside exec block"},
+        {"text": "All dotnet commands are wrapped in exec {} blocks", "passed": true, "evidence": "All four dotnet calls wrapped in exec {}"},
+        {"text": "Includes a Pack task that creates NuGet packages", "passed": true, "evidence": "Task Pack with dotnet pack inside exec block"}
+      ]
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "psake-dotnet-build",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 67.7,
+        "tokens": 11711,
+        "tool_calls": 4,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Version property reads $env:BUILD_VERSION with a fallback default of '0.0.1'", "passed": true, "evidence": "$Version = if ($env:BUILD_VERSION) { $env:BUILD_VERSION } else { '0.0.1' }"},
+        {"text": "Has a Properties {} block defining SrcDir/BuildDir/Configuration/Version", "passed": false, "evidence": "Properties block uses $ArtifactsDir instead of $BuildDir"},
+        {"text": "dotnet test uses --logger for TRX output", "passed": true, "evidence": "--logger \"trx;LogFileName=$trxFile\" present"},
+        {"text": "All dotnet commands are wrapped in exec {} blocks", "passed": true, "evidence": "All dotnet calls inside Exec {} blocks"},
+        {"text": "Includes a Pack task that creates NuGet packages", "passed": true, "evidence": "Task Pack with dotnet pack"}
+      ]
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "psake-dynamic-docker",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 74.1,
+        "tokens": 20903,
+        "tool_calls": 8,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Uses Get-ChildItem to enumerate services directories at runtime", "passed": true, "evidence": "Get-ChildItem -Path services -Directory with Dockerfile filter"},
+        {"text": "Dynamic task closures use .GetNewClosure() to correctly capture loop variables", "passed": true, "evidence": "Both Build and Push task blocks call .GetNewClosure()"},
+        {"text": "Defines BuildAll and PushAll aggregate tasks that depend on dynamically generated tasks", "passed": true, "evidence": "Task BuildAll -depends ($script:BuildTaskNames) and PushAll defined"},
+        {"text": "Docker registry comes from $env:REGISTRY", "passed": true, "evidence": "$Registry = $env:REGISTRY in Properties block"},
+        {"text": "Assert or validation used to check $env:REGISTRY is set before pushing", "passed": true, "evidence": "Assert (-not [string]::IsNullOrEmpty($localRegistry)) used in Push task"}
+      ]
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "psake-dynamic-docker",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 61.4,
+        "tokens": 10997,
+        "tool_calls": 5,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Uses Get-ChildItem to enumerate services directories at runtime", "passed": true, "evidence": "Get-ChildItem -Path $ServicesRoot -Directory used"},
+        {"text": "Dynamic task closures use .GetNewClosure() to correctly capture loop variables", "passed": false, "evidence": "No .GetNewClosure() — uses $capturedSvc = $svc copy pattern instead (valid alternative but not the canonical psake approach)"},
+        {"text": "Defines BuildAll and PushAll aggregate tasks that depend on dynamically generated tasks", "passed": true, "evidence": "task BuildAll -depends ($BuildTaskNames -as [string[]]) defined"},
+        {"text": "Docker registry comes from $env:REGISTRY", "passed": true, "evidence": "$registry = $env:REGISTRY read in task bodies"},
+        {"text": "Assert or validation used to check $env:REGISTRY is set before pushing", "passed": true, "evidence": "if (-not $registry) { throw } used in both Build and Push tasks"}
+      ]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {"mean": 0.933, "stddev": 0.115, "min": 0.8, "max": 1.0},
+      "time_seconds": {"mean": 79.3, "stddev": 6.5, "min": 74.1, "max": 86.8},
+      "tokens": {"mean": 18497, "stddev": 2179, "min": 16628, "max": 20903}
+    },
+    "without_skill": {
+      "pass_rate": {"mean": 0.600, "stddev": 0.346, "min": 0.2, "max": 0.8},
+      "time_seconds": {"mean": 78.3, "stddev": 23.2, "min": 61.4, "max": 105.8},
+      "tokens": {"mean": 12273, "stddev": 1659, "min": 10997, "max": 14111}
+    },
+    "delta": {
+      "pass_rate": "+0.33",
+      "time_seconds": "+1.0",
+      "tokens": "+6224"
+    }
+  },
+  "notes": [
+    "exec-wrapping assertion is non-discriminating for eval 1: when using -FromModule PowerShellBuild, there are no raw external commands — both correct skill usage and incorrect hand-coding fail it for different reasons",
+    "Without-skill runs for eval 1 show the biggest gap (4/5 vs 1/5) — the skill strongly guides toward PowerShellBuild conventions",
+    "Eval 2 (.NET build) shows the smallest gap — psake patterns for dotnet builds are well-known and Claude produces reasonable output without the skill",
+    "Eval 3 (dynamic Docker) shows .GetNewClosure() as a skill-specific signal — without skill, Claude uses a variable-copy workaround that works but isn't the canonical psake pattern"
+  ]
+}

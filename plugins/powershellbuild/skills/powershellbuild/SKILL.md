@@ -29,18 +29,16 @@ Install-Module -Name psake -MinimumVersion 4.8.0 -Repository PSGallery -Scope Cu
 
 ### Minimal psakeFile.ps1
 
-```powershell
-Import-Module PowerShellBuild -Force
+> **Do NOT `Import-Module PowerShellBuild` in psakeFile.ps1** — `-FromModule` loads the module automatically when psake parses the task definitions.
 
+```powershell
 properties {
     $PSBPreference.Test.ScriptAnalysis.Enabled = $true
     $PSBPreference.Test.CodeCoverage.Enabled   = $false
 }
 
-task default -depends Build
+task default -depends Test
 
-task Clean   -FromModule PowerShellBuild
-task Build   -FromModule PowerShellBuild
 task Test    -FromModule PowerShellBuild
 task Publish -FromModule PowerShellBuild
 ```
@@ -199,8 +197,6 @@ if ($PSCmdlet.ParameterSetName -eq 'Help') {
 ### psakeFile.ps1 (full)
 
 ```powershell
-Import-Module PowerShellBuild -Force
-
 properties {
     $PSBPreference.Build.CompileModule             = $true
     $PSBPreference.Build.CompileDirectories        = @('Enum', 'Classes', 'Private', 'Public')
@@ -223,7 +219,6 @@ task Publish -FromModule PowerShellBuild
 ## Invoke-Build Alternative
 
 ```powershell
-Import-Module PowerShellBuild -Force
 . PowerShellBuild.IB.Tasks
 
 $PSBPreference.Build.CompileModule         = $true
