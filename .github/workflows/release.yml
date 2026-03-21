@@ -1,0 +1,82 @@
+name: Release on Version Change
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Read current version
+        id: version
+        run: |
+          VERSION=$(jq -r '.metadata.version' .claude-plugin/marketplace.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag already exists
+        id: tag_check
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create psake.skill archive
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          cd plugins/psake/skills/psake
+          zip -r psake.skill .
+          mv psake.skill "$OLDPWD"
+
+      - name: Create powershellbuild.skill archive
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          cd plugins/powershellbuild/skills/powershellbuild
+          zip -r powershellbuild.skill .
+          mv powershellbuild.skill "$OLDPWD"
+
+      - name: Create GitHub Release
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: psake-tools ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: false
+          files: "*.skill"
+          body: |
+            ## psake-tools Skill Packages
+
+            This release contains Claude skill packages for the psake ecosystem.
+
+            ### Skills Included
+
+            | Skill | Description |
+            |-------|-------------|
+            | `psake.skill` | psake build automation for .NET, Node.js, Docker, and more |
+            | `powershellbuild.skill` | PowerShellBuild standardized tasks for PowerShell module development |
+
+            ### Installation
+
+            **Marketplace (recommended):** Add the marketplace in Claude Code:
+            ```
+            /plugin marketplace add https://github.com/psake/psake-llm-tools
+            ```
+            Then install individual plugins with `/plugin install`.
+
+            **Direct download:** Download a `.skill` file and upload it to Claude.
+          generate_release_notes: true

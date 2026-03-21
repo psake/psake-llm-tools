@@ -1,0 +1,4 @@
+{
+  "name": "psake",
+  "description": "psake PowerShell build automation — task-based build scripts for .NET, Node.js, Docker, and more"
+}
