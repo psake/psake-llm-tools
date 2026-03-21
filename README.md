@@ -17,7 +17,7 @@ Contributions are welcome!
 Add the marketplace in Claude Code, then install whichever skills you need:
 
 ```
-/plugin marketplace add https://github.com/psake/psake-llm-tools
+/plugin marketplace add psake/psake-llm-tools
 ```
 
 Once added, install individual skills with `/plugin install`.
