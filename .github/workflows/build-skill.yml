@@ -1,4 +1,4 @@
-name: Build Skill Package
+name: Build Skill Packages
 
 on:
   workflow_dispatch:
@@ -22,31 +22,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create psake.skill archive
-        run: |
-          cd .claude/skills/psake
-          zip -r ./psake.skill .
-          mv psake.skill ../../..
-          cd ../../..
-          ls -lh psake.skill
-
-      - name: Upload skill artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: psake-skill
-          path: psake.skill
-          retention-days: 90
-
-      - name: Display package info
-        run: |
-          echo "## psake.skill Package Created" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📦 **File:** psake.skill" >> $GITHUB_STEP_SUMMARY
-          echo "📊 **Size:** $(du -h psake.skill | cut -f1)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Contents:" >> $GITHUB_STEP_SUMMARY
-          unzip -l psake.skill >> $GITHUB_STEP_SUMMARY
-
       - name: Determine version
         id: version
         run: |
@@ -58,25 +33,69 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "VERSION: $VERSION" >> $GITHUB_STEP_SUMMARY
 
+      - name: Create psake.skill archive
+        run: |
+          cd plugins/psake/skills/psake
+          zip -r psake.skill .
+          mv psake.skill "$OLDPWD"
+          cd "$OLDPWD"
+          ls -lh psake.skill
+
+      - name: Create powershellbuild.skill archive
+        run: |
+          cd plugins/powershellbuild/skills/powershellbuild
+          zip -r powershellbuild.skill .
+          mv powershellbuild.skill "$OLDPWD"
+          cd "$OLDPWD"
+          ls -lh powershellbuild.skill
+
+      - name: Upload skill artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-packages
+          path: "*.skill"
+          retention-days: 90
+
+      - name: Display package info
+        run: |
+          echo "## Skill Packages Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for skill in *.skill; do
+            echo "### $skill" >> $GITHUB_STEP_SUMMARY
+            echo "**Size:** $(du -h $skill | cut -f1)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            unzip -l $skill >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          name: psake Skill ${{ steps.version.outputs.version }}
+          name: psake-tools ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
-          files: psake.skill
+          files: "*.skill"
           body: |
-            ## psake Claude Skill Package
+            ## psake-tools Skill Packages
 
-            This release contains the psake skill package for Claude Code Assistant.
+            This release contains Claude skill packages for the psake ecosystem.
+
+            ### Skills Included
+
+            | Skill | Description |
+            |-------|-------------|
+            | `psake.skill` | psake build automation for .NET, Node.js, Docker, and more |
+            | `powershellbuild.skill` | PowerShellBuild standardized tasks for PowerShell module development |
 
             ### Installation
-            Download `psake.skill` and add it to your Claude skills directory.
 
-            ### What's Inside
-            - Complete psake build automation documentation
-            - PowerShell module build patterns
-            - CI/CD integration examples
-            - Advanced features and task patterns
+            **Marketplace (recommended):** Add the marketplace in Claude Code:
+            ```
+            /plugin marketplace add https://github.com/psake/psake-llm-tools
+            ```
+            Then install individual plugins with `/plugin install`.
+
+            **Direct download:** Download a `.skill` file and upload it to Claude.
           generate_release_notes: true

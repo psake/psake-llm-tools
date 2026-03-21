@@ -2,6 +2,9 @@
 test_results/
 *.skill
 
+# Eval workspaces (runtime artifacts — keep benchmark/feedback in plugins/*/evals/ instead)
+*-workspace/
+
 # Python
 __pycache__/
 *.py[cod]

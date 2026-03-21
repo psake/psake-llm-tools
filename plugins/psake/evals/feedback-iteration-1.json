@@ -1,0 +1,35 @@
+{
+  "reviews": [
+    {
+      "run_id": "psake-module-build-with_skill",
+      "feedback": "`build.ps1`: Backticks aren't great. No `-bootstrap`. Write-Host not necessary.",
+      "timestamp": "2026-03-20T23:22:28.929Z"
+    },
+    {
+      "run_id": "psake-module-build-without_skill",
+      "feedback": "Didn't use PowerShellBuild, but for a project that wants minimal dependencies this isn't terrible. Not certain if all the code is valid but it passes the sniff test.",
+      "timestamp": "2026-03-20T23:22:28.929Z"
+    },
+    {
+      "run_id": "psake-dotnet-build-with_skill",
+      "feedback": "Perfect.",
+      "timestamp": "2026-03-20T23:22:28.929Z"
+    },
+    {
+      "run_id": "psake-dotnet-build-without_skill",
+      "feedback": "Not nearly as clean, but it works. No properties means it can't be overridden via command line.",
+      "timestamp": "2026-03-20T23:22:28.929Z"
+    },
+    {
+      "run_id": "psake-dynamic-docker-with_skill",
+      "feedback": "Excellent use of advanced options.",
+      "timestamp": "2026-03-20T23:22:28.929Z"
+    },
+    {
+      "run_id": "psake-dynamic-docker-without_skill",
+      "feedback": "Works but it's much messier.",
+      "timestamp": "2026-03-20T23:22:28.929Z"
+    }
+  ],
+  "status": "in_progress"
+}

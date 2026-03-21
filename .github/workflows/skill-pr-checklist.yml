@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened]
     paths:
-      - '.claude/skills/psake/**'
+      - 'plugins/**'
 
 jobs:
   checklist-reminder:
@@ -13,34 +13,48 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Detect changed plugins
+        id: changed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const plugins = new Set();
+            for (const f of files.data) {
+              const m = f.filename.match(/^plugins\/([^/]+)\//);
+              if (m) plugins.add(m[1]);
+            }
+            return [...plugins].join(', ');
+          result-encoding: string
+
       - name: Add checklist comment
         uses: actions/github-script@v7
         with:
           script: |
+            const plugins = '${{ steps.changed.outputs.result }}';
             const comment = `## 📝 Skill Changes Detected
 
-            Thank you for contributing to the psake skill! Please ensure you've addressed the following:
+            Thank you for contributing to psake-tools! Changes detected in: **${plugins}**
 
             ### ✅ Validation Checklist
 
-            - [ ] \`SKILL.md\` structure and frontmatter are valid
+            - [ ] \`SKILL.md\` structure and frontmatter are valid (name + description present)
             - [ ] All code examples are tested and working
             - [ ] Documentation follows existing style
-            - [ ] No broken internal references
+            - [ ] No broken internal references between files
+            - [ ] SKILL.md is under 500 lines; reference files are under 300 lines each
 
-            ### 🧪 Testing Scenarios
+            ### 🧪 Testing
 
-            Please test relevant scenarios from [TESTING.md](../blob/main/TESTING.md):
-
-            - [ ] PowerShell Module Build
-            - [ ] .NET Solution Build  
-            - [ ] File Management Automation
-            - [ ] Dynamic Task Generation
-            - [ ] CI/CD Integration
+            Please test your changes following the [TESTING.md](../blob/main/TESTING.md) guide.
 
             ---
 
-            💡 **Tip:** You can also use the [skill-changes PR template](../blob/main/.github/PULL_REQUEST_TEMPLATE/skill-changes.md) for a complete checklist.`;
+            💡 **Tip:** Use the [skill-changes PR template](../blob/main/.github/PULL_REQUEST_TEMPLATE/skill-changes.md) for a full checklist.`;
 
             github.rest.issues.createComment({
               owner: context.repo.owner,

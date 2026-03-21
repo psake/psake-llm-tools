@@ -1,0 +1,25 @@
+{
+  "reviews": [
+    {
+      "run_id": "psb-new-module-scaffold-with_skill",
+      "feedback": "This does well to use Bootstrap and use Set-BuildEnvironment. `Import-Module PowerShellBuild -Force` should not be in the psakeFile. All tasks available \"FromModule\" show up when psake parses the psakeFile.ps1. So you wouldn't only need a `task default -depends Test`  and `task Test    -FromModule PowerShellBuild`",
+      "timestamp": "2026-03-20T23:12:26.910Z"
+    },
+    {
+      "run_id": "psb-new-module-scaffold-without_skill",
+      "feedback": "build.ps1 look good. It uses backticks which are not considered best practice, but it's a style nit.\npsakefile.sp1: `Invoke-PSBTask` and `Set-PSBDefault` are not a commands and this would not work. The comments are nice, but they could also just use the description.\nResponse was mostly good. Not accurate about Build block.",
+      "timestamp": "2026-03-20T23:12:26.910Z"
+    },
+    {
+      "run_id": "psb-github-actions-ci-with_skill",
+      "feedback": "ci.yml: `branches: ['**']` is probably not the best way for github. We may have just seen what the default branch or asked. It also has a publish test.\nWe do not need to `Import-Module PowerShellBuild` in the psakeFile.ps1. FromModule will load it.",
+      "timestamp": "2026-03-20T23:12:26.910Z"
+    },
+    {
+      "run_id": "psb-github-actions-ci-without_skill",
+      "feedback": "```\nbranches:\n      - '**'\n```\nIs not a good way to write this. ",
+      "timestamp": "2026-03-20T23:12:26.910Z"
+    }
+  ],
+  "status": "in_progress"
+}

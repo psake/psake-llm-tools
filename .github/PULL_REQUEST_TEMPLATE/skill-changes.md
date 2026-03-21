@@ -1,44 +1,37 @@
 # Skill Changes Pull Request
 
+## Plugin(s) Changed
+
+<!-- Which plugin(s) does this PR affect? psake / powershellbuild / both -->
+
 ## Changes Made
 
-<!-- Describe the changes you've made to the psake skill -->
+<!-- Describe the changes you've made -->
 
 ## Checklist
 
-Review the TESTING.md in the repository.
+Review the [TESTING.md](../blob/main/TESTING.md) guide before submitting.
 
 ### Skill Structure Validation
 
-- [ ] `SKILL.md` exists and is properly formatted
-- [ ] YAML frontmatter is present and valid (name, description)
-- [ ] `references/` directory structure is intact
+- [ ] `SKILL.md` exists and has valid YAML frontmatter (name + description)
+- [ ] `references/` directory structure is intact (if applicable)
 - [ ] All markdown files use proper formatting
 - [ ] No broken internal references between files
+- [ ] SKILL.md is under 500 lines; reference files under 300 lines each
 
 ### Content Quality
 
 - [ ] Code examples are tested and working
 - [ ] Documentation is clear and follows existing style
-- [ ] Examples include necessary context and explanations
 - [ ] Changes maintain consistency with existing content
 
 ### Testing
 
-Before submitting this PR, I have tested the following scenarios (check all that apply):
-
-- [ ] **Scenario 1: PowerShell Module Build** - Verified Claude can generate correct PowerShell module build scripts
-- [ ] **Scenario 2: .NET Solution Build** - Verified .NET build task creation and configuration
-- [ ] **Scenario 3: File Management Automation** - Tested file copy/clean/archive patterns
-- [ ] **Scenario 4: Dynamic Task Generation** - Validated dynamic task and dependency patterns
-- [ ] **Scenario 5: CI/CD Integration** - Checked GitHub Actions/Azure Pipelines examples
-
-### Documentation
-
-- [ ] Updated relevant sections in `SKILL.md`
-- [ ] Added/updated reference files if needed
-- [ ] Verified all line counts are reasonable (SKILL.md < 500 lines, references < 300 lines each)
+- [ ] Tested the skill manually in Claude (upload `.skill` or install via marketplace)
+- [ ] Verified skill triggers on expected prompts
+- [ ] Verified skill produces correct output for at least one scenario
 
 ## Additional Notes
 
-<!-- Any additional context, breaking changes, or migration notes -->
+<!-- Any breaking changes, migration notes, or context for reviewers -->
