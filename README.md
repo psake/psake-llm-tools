@@ -22,6 +22,10 @@ Add the marketplace in Claude Code, then install whichever skills you need:
 
 Once added, install individual skills with `/plugin install`.
 
+### VSCode
+
+You can use this link to add the marketplace (copy and paste into address bar): `vscode://chat-plugin/install?source=https://github.com/psake/psake-llm-tools/`
+
 ### Direct download (.skill files)
 
 Download a `.skill` file from the [releases page](https://github.com/psake/psake-llm-tools/releases)
