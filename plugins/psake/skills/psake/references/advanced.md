@@ -3,7 +3,6 @@
 ## Contents
 
 - Dynamic Task Generation (from package.json, directories, config files)
-- Custom Logging (psake 4.10+ outputHandlers)
 - CI/CD Integration (GitHub Actions, Azure Pipelines, GitLab CI)
 - Nested Builds
 - Error Handling Patterns
@@ -85,61 +84,6 @@ foreach ($project in $config.Projects) {
 }
 ```
 
-## Custom Logging (psake 4.10+)
-
-Override psake's internal logging via `outputHandlers` in psake-config.
-
-### Basic Override
-
-```powershell
-# psake-config.ps1
-$config.outputHandlers.writeOutput = {
-    param($message, $type)
-    
-    $timestamp = Get-Date -Format 'HH:mm:ss'
-    $prefix = switch ($type) {
-        'warning' { '⚠️' }
-        'error'   { '❌' }
-        'debug'   { '🔍' }
-        default   { '▶️' }
-    }
-    
-    Write-Host "[$timestamp] $prefix $message"
-}
-```
-
-### Route to External Logger
-
-```powershell
-# Integration with a logging module
-$config.outputHandlers.writeOutput = {
-    param($message, $type)
-    
-    switch ($type) {
-        'error'   { Write-PSFMessage -Level Error -Message $message }
-        'warning' { Write-PSFMessage -Level Warning -Message $message }
-        'debug'   { Write-PSFMessage -Level Debug -Message $message }
-        default   { Write-PSFMessage -Level Output -Message $message }
-    }
-}
-```
-
-### Override Specific Output Types
-
-```powershell
-# Only override error handling
-$config.outputHandlers.error = {
-    param($message)
-    
-    # Log to file
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    "$timestamp [ERROR] $message" | Add-Content './build-errors.log'
-    
-    # Also write to console
-    Write-Host $message -ForegroundColor Red
-}
-```
-
 ## CI/CD Integration
 
 ### GitHub Actions
@@ -177,9 +121,9 @@ jobs:
           Set-PSRepository PSGallery -InstallationPolicy Trusted
           Install-Module psake -Scope CurrentUser -Force
       
-      - name: Build
+      - name: Build and Test
         shell: pwsh
-        run: Invoke-psake -taskList Build, Test
+        run: Invoke-psake -taskList Build, Test -OutputFormat GitHubActions
       
       - name: Publish
         if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest'
@@ -188,6 +132,8 @@ jobs:
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 ```
+
+`-OutputFormat GitHubActions` emits `::error::`, `::warning::`, and `::debug::` annotations that show inline in PR diffs.
 
 ### Azure Pipelines
 
@@ -209,8 +155,9 @@ stages:
         steps:
           - pwsh: |
               Install-Module psake -Scope CurrentUser -Force
-              Invoke-psake -taskList Build, Test `
-                -parameters @{ BuildNumber = '$(Build.BuildNumber)' }
+              $result = Invoke-psake -taskList Build, Test `
+                -parameters @{ BuildNumber = '$(Build.BuildNumber)' } -Quiet
+              if (-not $result.Success) { exit 1 }
             displayName: 'Build and Test'
           
           - publish: $(System.DefaultWorkingDirectory)/build
@@ -284,10 +231,10 @@ Call psake from within a task:
 
 ```powershell
 Task BuildSubProject {
-    Invoke-psake -buildFile './subproject/psakefile.ps1' -taskList Build
+    $result = Invoke-psake -buildFile './subproject/psakefile.ps1' -taskList Build -Quiet
     
-    if (-not $psake.build_success) {
-        throw "Subproject build failed"
+    if (-not $result.Success) {
+        throw "Subproject build failed: $($result.ErrorMessage)"
     }
 }
 ```

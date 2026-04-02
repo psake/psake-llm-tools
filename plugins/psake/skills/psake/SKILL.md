@@ -1,11 +1,11 @@
 ---
 name: psake
-description: PowerShell build automation tool for creating task-based build scripts. Use when Claude needs to create, modify, or troubleshoot psake build scripts (psakefile.ps1), automate builds for .NET/Node.js/Docker projects, set up CI/CD pipelines with psake (GitHub Actions, Azure Pipelines, GitLab CI), or work with PowerShell-based build automation. Triggers include mentions of psake, psakefile, PowerShell build scripts, Invoke-psake, or build task dependencies.
+description: PowerShell build automation tool for creating task-based build scripts. Use when Claude needs to create, modify, or troubleshoot psake build scripts (psakefile.ps1), automate builds for .NET/Node.js/Docker projects, set up CI/CD pipelines with psake (GitHub Actions, Azure Pipelines, GitLab CI), or work with PowerShell-based build automation. Triggers include mentions of psake, psakefile, PowerShell build scripts, Invoke-psake, build task dependencies, psake caching, PsakeBuildResult, or Get-PsakeBuildPlan.
 ---
 
 # psake Build Automation
 
-psake is a PowerShell build automation tool using a DSL for task-based builds with dependencies.
+psake is a PowerShell build automation tool using a DSL for task-based builds with dependencies. psake v5 introduces a two-phase compile/run model, declarative syntax, file-based caching, and structured output.
 
 ## Decision Tree
 
@@ -30,11 +30,14 @@ Install-Module -Name psake -Scope CurrentUser -Force
 Invoke-psake                              # Run 'Default' task
 Invoke-psake -taskList Build, Test        # Run specific tasks
 Invoke-psake -docs                        # Show task documentation
+Invoke-psake -OutputFormat JSON           # JSON output for CI
 ```
 
 ## Minimal psakefile.ps1
 
 ```powershell
+Version 5
+
 Properties {
     $BuildDir = Join-Path $PSScriptRoot 'build'
 }
@@ -59,28 +62,84 @@ Task Test -depends Build {
 
 ### Task
 
-```powershell
-Task <name> [-depends <tasks>] [-precondition <scriptblock>] [-description <string>] { <action> }
-```
+Two equivalent syntaxes — use whichever reads better for your build:
 
 ```powershell
-Task Deploy -depends Build -precondition { $env:CI -eq 'true' } -description "Deploy to prod" {
+# Classic syntax (works in v4 and v5)
+Task Build -depends Clean -description "Compile project" {
+    exec { dotnet build }
+}
+
+# Declarative syntax (v5 — hashtable with validated keys)
+Task 'Build' @{
+    DependsOn   = 'Clean'
+    Description = 'Compile project'
+    Action      = { exec { dotnet build } }
+}
+```
+
+The declarative syntax validates keys at parse time — typos like `DependOn` throw immediately. Valid keys: `Action`, `DependsOn`, `Inputs`, `Outputs`, `PreAction`, `PostAction`, `PreCondition`, `PostCondition`, `ContinueOnError`, `Description`, `Alias`, `RequiredVariables`.
+
+#### Task with Caching
+
+Tasks with `Inputs` and `Outputs` are content-addressed cached in `.psake/cache/`. If input file hashes haven't changed and output files exist, the task is skipped.
+
+```powershell
+Task 'Build' @{
+    DependsOn = 'Clean'
+    Inputs    = 'src/**/*.cs', 'src/**/*.csproj'
+    Outputs   = 'bin/**/*.dll'
+    Action    = { exec { dotnet build -c $Configuration } }
+}
+```
+
+Inputs/Outputs also accept scriptblocks for dynamic file resolution:
+
+```powershell
+Task 'Build' @{
+    Inputs  = { Get-ChildItem src -Recurse -Include *.cs }
+    Outputs = { Get-ChildItem bin -Recurse -Include *.dll -ErrorAction SilentlyContinue }
+    Action  = { exec { dotnet build } }
+}
+```
+
+Use `Clear-PsakeCache` to force a full rebuild, or `Invoke-psake -NoCache` for a single run.
+
+#### Conditional Execution
+
+```powershell
+Task Deploy -precondition { $env:CI -eq 'true' } -description "Deploy to prod" {
     exec { ./deploy.ps1 }
 }
 ```
 
 ### Properties
 
-Variables that can be overridden via `-properties` parameter:
+Variables available to all tasks. Can be overridden via `-properties` parameter.
 
 ```powershell
+# Scriptblock syntax
 Properties {
     $Configuration = 'Release'
     $Version = '1.0.0'
 }
+
+# Hashtable syntax (v5)
+Properties @{
+    Configuration = 'Release'
+    Version       = '1.0.0'
+}
 ```
 
 Override: `Invoke-psake -properties @{ Configuration = 'Debug' }`
+
+### Version
+
+Pin your build script to a psake major version. The compile phase rejects version mismatches.
+
+```powershell
+Version 5
+```
 
 ### exec
 
@@ -91,6 +150,7 @@ exec { dotnet build }                                    # Basic
 exec { npm install } "npm install failed"                # Custom error
 exec { nuget restore } -maxRetries 3                     # Retry flaky ops
 exec { npm test } -workingDirectory './frontend'         # Different directory
+exec { ./slow-build.ps1 } -TimeoutSeconds 600            # Timeout (v5)
 ```
 
 ### Assert
@@ -121,6 +181,26 @@ TaskSetup { Write-Host "Starting: $($psake.context.currentTaskName)" }
 TaskTearDown { Write-Host "Finished: $($psake.context.currentTaskName)" }
 ```
 
+## Structured Output
+
+`Invoke-psake` returns a `PsakeBuildResult` object:
+
+```powershell
+$result = Invoke-psake -Quiet
+$result.Success          # $true / $false
+$result.Duration         # TimeSpan
+$result.Tasks            # PsakeTaskResult[] with Name, Status, Duration, Cached
+$result.ErrorMessage     # Error details if failed
+```
+
+The `$psake.build_success` variable is still set after each build for backward compatibility.
+
+For CI pipelines, use JSON output:
+
+```powershell
+Invoke-psake -OutputFormat JSON
+```
+
 ## Invoke-psake Parameters
 
 | Parameter | Description |
@@ -131,16 +211,40 @@ TaskTearDown { Write-Host "Finished: $($psake.context.currentTaskName)" }
 | `-properties` | Hashtable to override Properties block (set after Properties) |
 | `-docs` | Display task documentation |
 | `-nologo` | Suppress banner |
+| `-OutputFormat` | `Default`, `JSON`, or `GitHubActions` (v5) |
+| `-NoCache` | Bypass task caching for this run (v5) |
+| `-CompileOnly` | Return build plan without executing (v5) |
+| `-Quiet` | Suppress console output; still returns PsakeBuildResult (v5) |
 
-## Common Patterns
+## Testability APIs
 
-### Conditional Execution
+### Inspect the Build Plan
 
 ```powershell
-Task Deploy -precondition { $env:GITHUB_REF -eq 'refs/heads/main' } {
-    # Only runs on main branch
-}
+$plan = Get-PsakeBuildPlan -BuildFile './psakefile.ps1'
+$plan.ExecutionOrder    # ['Clean', 'Build', 'Test', 'Default']
+$plan.TaskMap['build'].DependsOn  # ['Clean']
+$plan.IsValid           # $true
+$plan.ValidationErrors  # @()
 ```
+
+The plan can also be piped into `Invoke-psake`:
+
+```powershell
+Get-PsakeBuildPlan | Invoke-psake
+```
+
+### Test a Task in Isolation
+
+```powershell
+$result = Test-PsakeTask -BuildFile './psakefile.ps1' -TaskName 'Build' -Variables @{
+    Configuration = 'Debug'
+}
+$result.Status    # 'Executed'
+$result.Duration  # TimeSpan
+```
+
+## Common Patterns
 
 ### Environment-Specific
 
@@ -193,81 +297,30 @@ Task ProcessFiles -depends GetFiles {
 
 > **Note:** psake tasks don't have return values. `$script:` scoped variables are the recommended approach for task-to-task data sharing.
 
-### File Management
-
-psake works for any automation, not just builds:
-
-```powershell
-Task CleanTempFiles {
-    $cutoff = (Get-Date).AddDays(-30)
-    Get-ChildItem -Path $TempDir -File |
-        Where-Object { $_.LastWriteTime -lt $cutoff } |
-        Remove-Item -Force
-}
-```
-
-### Console Output Formatting
-
-For reporting-style tasks:
-
-```powershell
-Task Report {
-    Write-Host "Processing: " -NoNewline
-    Write-Host $item.Name -ForegroundColor Cyan
-    
-    $results | Format-Table Name, Size, Age -AutoSize
-}
-```
-
 ## Validating a psakefile
 
-After generating a psakefile, always validate it.
+### Using Get-PsakeBuildPlan (recommended)
+
+The compile phase catches circular dependencies, missing tasks, and version mismatches before any task runs:
+
+```powershell
+$plan = Get-PsakeBuildPlan -BuildFile './psakefile.ps1'
+if (-not $plan.IsValid) {
+    $plan.ValidationErrors | ForEach-Object { Write-Error $_ }
+} else {
+    Write-Host "✓ Build plan valid — execution order: $($plan.ExecutionOrder -join ' → ')"
+}
+```
 
 ### Syntax Check
 
 ```powershell
-# Parse without executing - returns errors if invalid
-$file = 'psakefile.ps1'
 $errors = $null
 $null = [System.Management.Automation.Language.Parser]::ParseFile(
-    (Resolve-Path $file),
-    [ref]$null,
-    [ref]$errors
+    (Resolve-Path 'psakefile.ps1'), [ref]$null, [ref]$errors
 )
-if ($errors) {
-    $errors | ForEach-Object { Write-Error $_.ToString() }
-} else {
-    Write-Host "✓ Syntax valid" -ForegroundColor Green
-}
-```
-
-### Structure Check
-
-Verify the psakefile uses correct psake functions:
-
-```powershell
-$content = Get-Content 'psakefile.ps1' -Raw
-
-# Required elements
-$checks = @(
-    @{ Name = 'Task definitions'; Pattern = 'Task\s+\w+' }
-    @{ Name = 'Properties block'; Pattern = 'Properties\s*\{' }
-    @{ Name = 'exec for external commands'; Pattern = 'exec\s*\{' }
-)
-
-foreach ($check in $checks) {
-    if ($content -match $check.Pattern) {
-        Write-Host "✓ $($check.Name)" -ForegroundColor Green
-    } else {
-        Write-Host "✗ $($check.Name) - not found" -ForegroundColor Yellow
-    }
-}
-```
-
-### Quick Validation One-Liner
-
-```powershell
-pwsh -NoProfile -Command "$e=$null;[void][System.Management.Automation.Language.Parser]::ParseFile('psakefile.ps1',[ref]$null,[ref]$e);if($e){$e}else{'Valid'}"
+if ($errors) { $errors | ForEach-Object { Write-Error $_.ToString() } }
+else { Write-Host "✓ Syntax valid" -ForegroundColor Green }
 ```
 
 ## Troubleshooting
@@ -279,9 +332,13 @@ pwsh -NoProfile -Command "$e=$null;[void][System.Management.Automation.Language.
 | Module not found in CI | `Install-Module -Name psake -Scope CurrentUser -Force` |
 | Properties not overriding | Use `-properties` (not `-parameters`) to override Properties block |
 | Variable undefined in dependent task | Use `$script:VarName` to share data between tasks |
+| Circular dependency error | Check `Get-PsakeBuildPlan` output for `ValidationErrors` |
+| Task skipped unexpectedly | May be cached — run with `-NoCache` or `Clear-PsakeCache` |
+| `default.ps1` not found | v5 removed `default.ps1` fallback — rename to `psakefile.ps1` |
 
 ## References
 
+- **references/upgrading-to-v5.md** - Migration guide, caching for faster builds, structured output, testability APIs
 - **references/powershell-modules.md** - PowerShellBuild module for PS module development
 - **references/build-types.md** - .NET, Node.js, Docker build patterns
-- **references/advanced.md** - Dynamic tasks, custom logging, CI/CD integration
+- **references/advanced.md** - Dynamic tasks, CI/CD integration, $psake reference

@@ -12,11 +12,13 @@
 ### Modern .NET (SDK-style)
 
 ```powershell
-Properties {
-    $SrcDir = Join-Path $PSScriptRoot 'src'
-    $BuildDir = Join-Path $PSScriptRoot 'build'
-    $Configuration = 'Release'
-    $Version = '1.0.0'
+Version 5
+
+Properties @{
+    SrcDir        = Join-Path $PSScriptRoot 'src'
+    BuildDir      = Join-Path $PSScriptRoot 'build'
+    Configuration = 'Release'
+    Version       = '1.0.0'
 }
 
 Task Default -depends Test
@@ -30,8 +32,11 @@ Task Restore {
     exec { dotnet restore $SrcDir }
 }
 
-Task Build -depends Clean, Restore {
-    exec { dotnet build $SrcDir -c $Configuration -o $BuildDir --no-restore /p:Version=$Version }
+Task 'Build' @{
+    DependsOn = 'Clean', 'Restore'
+    Inputs    = 'src/**/*.cs', 'src/**/*.csproj'
+    Outputs   = 'build/**/*.dll'
+    Action    = { exec { dotnet build $SrcDir -c $Configuration -o $BuildDir --no-restore /p:Version=$Version } }
 }
 
 Task Test -depends Build {
@@ -59,7 +64,7 @@ Task Publish -depends Pack {
 ### Legacy .NET Framework (MSBuild)
 
 ```powershell
-Framework "4.0"
+Framework "4.7.2"
 
 Properties {
     $Solution = Join-Path $PSScriptRoot 'MySolution.sln'
@@ -76,6 +81,8 @@ Task Build -depends Clean {
     exec { msbuild $Solution /t:Build /p:Configuration=Release /p:OutDir=$BuildDir /v:minimal }
 }
 ```
+
+> **Note:** psake v5 requires Framework 4.0 or higher. The default is 4.7.2.
 
 ## Node.js Projects
 
