@@ -3,21 +3,105 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "I'm building a PowerShell module called 'AzureHelper' that has Public and Private function folders and Pester tests. Can you create a psakefile.ps1 for it that builds, runs tests with PSScriptAnalyzer, and publishes to PSGallery? I want to be able to run './build.ps1 Publish' in CI.",
-      "expected_output": "A psakefile.ps1 using PowerShellBuild (-FromModule) with Clean, Build, Test, Publish tasks and a build.ps1 entry point. Should use PSBPreference for config and reference exec for CI publish step with PSGALLERY_API_KEY.",
-      "files": []
+      "prompt": "I have a .NET 8 solution with two projects — a web API in src/Api and a class library in src/Core. I want a psakefile that restores, builds in Release mode, runs all xUnit tests with a TRX report, and packs NuGet packages. The version should come from an environment variable $env:BUILD_VERSION or default to '0.0.1'. Also I heard psake v5 has caching now — I want the Build task to be cached so repeat builds are fast during development.",
+      "expected_output": "A psakefile.ps1 with Version 5 declaration, Properties block, Build task using declarative syntax with Inputs/Outputs for caching (glob patterns for .cs/.csproj as inputs, .dll as outputs), and remaining tasks (Clean, Restore, Test, Pack) using standard syntax. All external commands wrapped in exec {}.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "has_version_declaration",
+          "type": "contains",
+          "value": "Version 5",
+          "description": "Build script should pin to psake v5"
+        },
+        {
+          "name": "has_caching_inputs",
+          "type": "regex",
+          "value": "Inputs\\s*=",
+          "description": "Build task should define Inputs for caching"
+        },
+        {
+          "name": "has_caching_outputs",
+          "type": "regex",
+          "value": "Outputs\\s*=",
+          "description": "Build task should define Outputs for caching"
+        },
+        {
+          "name": "uses_exec",
+          "type": "contains",
+          "value": "exec {",
+          "description": "External commands should be wrapped in exec"
+        },
+        {
+          "name": "has_version_fallback",
+          "type": "regex",
+          "value": "BUILD_VERSION|0\\.0\\.1",
+          "description": "Version should use env var with fallback"
+        }
+      ]
     },
     {
       "id": 2,
-      "prompt": "I have a .NET 8 solution with two projects — a web API in src/Api and a class library in src/Core. I want a psakefile that restores, builds in Release mode, runs all xUnit tests with a TRX report, and packs NuGet packages. The version should come from an environment variable $env:BUILD_VERSION or default to '0.0.1'.",
-      "expected_output": "A psakefile.ps1 with Properties block (SrcDir, BuildDir, Configuration, Version), and tasks: Clean, Restore, Build, Test (with dotnet test --logger trx), Pack. Version logic uses $env:BUILD_VERSION with fallback. All external commands wrapped in exec {}.",
-      "files": []
+      "prompt": "I've been using psake v4 for years and now I want to upgrade my build to v5. Here's my existing psakefile.ps1 — it uses the old default.ps1 naming, has a custom outputHandler in psake-config.ps1, and uses Framework '3.5'. I need to know what to change and I want to take advantage of the new caching feature for my Compile task. Can you walk me through the migration and produce an updated psakefile?",
+      "expected_output": "Migration guidance covering: rename default.ps1 to psakefile.ps1, remove output handler config and use -OutputFormat instead, update Framework from 3.5 to 4.0+, add Version 5 declaration. Updated psakefile with Inputs/Outputs on the Compile task for caching.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "mentions_rename",
+          "type": "regex",
+          "value": "(?i)(rename|psakefile\\.ps1|default\\.ps1)",
+          "description": "Should mention renaming default.ps1 to psakefile.ps1"
+        },
+        {
+          "name": "mentions_output_handler_removal",
+          "type": "regex",
+          "value": "(?i)(output.?handler|output.?format|removed|replaced)",
+          "description": "Should address the outputHandler removal"
+        },
+        {
+          "name": "mentions_framework_update",
+          "type": "regex",
+          "value": "(?i)(framework.*(4\\.[0-9]|update|change|upgrade)|(4\\.[0-9]).*framework)",
+          "description": "Should mention updating Framework version"
+        },
+        {
+          "name": "has_caching_on_compile",
+          "type": "regex",
+          "value": "(?i)(input|output).*compile|compile.*(input|output)",
+          "description": "Should add caching to the Compile task"
+        }
+      ]
     },
     {
       "id": 3,
-      "prompt": "I've got a monorepo with a bunch of microservices, each in their own folder under ./services. Each one has its own Dockerfile. I want a psakefile that dynamically creates a Build and Push task for each service at startup, plus a BuildAll and PushAll task that runs them all. The Docker registry should come from $env:REGISTRY.",
-      "expected_output": "A psakefile.ps1 that uses Get-ChildItem to enumerate ./services directories, dynamically creates Task blocks with .GetNewClosure() for each, then defines BuildAll/PushAll with -depends on the generated task names. Uses Assert to validate $env:REGISTRY.",
-      "files": []
+      "prompt": "I'm setting up a GitHub Actions workflow for my PowerShell project that uses psake. I want the CI to validate the build plan first (catch circular deps before running), then run the build, and output the results as JSON for a downstream reporting step. If any task fails I need the error details from the structured result. Show me the psakefile and the GitHub Actions YAML.",
+      "expected_output": "A psakefile.ps1 with Version 5 and standard tasks. GitHub Actions YAML that uses Get-PsakeBuildPlan to validate the plan first, then Invoke-psake with -OutputFormat JSON or -Quiet to capture PsakeBuildResult, checks $result.Success, and uses the structured error info.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "has_build_plan_validation",
+          "type": "regex",
+          "value": "(?i)(Get-PsakeBuildPlan|CompileOnly|IsValid)",
+          "description": "Should validate build plan before execution"
+        },
+        {
+          "name": "has_structured_output",
+          "type": "regex",
+          "value": "(?i)(OutputFormat.*JSON|PsakeBuildResult|result\\.Success|\\.Success)",
+          "description": "Should use structured output or JSON format"
+        },
+        {
+          "name": "has_github_actions_yaml",
+          "type": "regex",
+          "value": "(?i)(runs-on|uses:.*checkout|actions/checkout)",
+          "description": "Should include GitHub Actions workflow YAML"
+        },
+        {
+          "name": "has_error_handling",
+          "type": "regex",
+          "value": "(?i)(ErrorMessage|error_message|build_success|exit\\s+1)",
+          "description": "Should handle build failures with error details"
+        }
+      ]
     }
   ]
 }

@@ -17,7 +17,7 @@ For PowerShell module development, use **PowerShellBuild** - a collection of pre
 ```powershell
 # Install
 Install-Module -Name PowerShellBuild -Scope CurrentUser -Force
-Install-Module -Name psake -RequiredVersion 4.8.0 -Scope CurrentUser -Force
+Install-Module -Name psake -Scope CurrentUser -Force
 ```
 
 ### Minimal psakeFile.ps1
@@ -168,10 +168,10 @@ if ($PSCmdlet.ParameterSetName -eq 'Help') {
 
 ```powershell
 @{
-    psake = '4.9.0'
+    psake = '5.0.0'
     PowerShellBuild = '0.7.0'
-    Pester = '5.5.0'
-    PSScriptAnalyzer = '1.21.0'
+    Pester = '5.6.1'
+    PSScriptAnalyzer = '1.24.0'
     PlatyPS = '0.14.2'
 }
 ```
