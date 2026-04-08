@@ -29,7 +29,7 @@
     },
     {
       "name": "powershellbuild",
-      "source": "./powershellbuild",
+      "source": "./plugins/powershellbuild",
       "description": "PowerShellBuild — standardized build, test, and publish tasks for PowerShell module development",
       "version": "1.0.0",
       "author": {

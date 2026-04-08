@@ -1,6 +1,6 @@
 ---
 name: powershellbuild
-description: PowerShellBuild module for standardized PowerShell module development. Use when Claude needs to help set up or troubleshoot PowerShellBuild-based projects, generate psakeFile.ps1 or .build.ps1 files using PowerShellBuild tasks, configure build/test/publish pipelines for PowerShell modules, or work with PSBPreference settings. Triggers include mentions of PowerShellBuild, PSBPreference, PowerShell module builds, Pester, PSScriptAnalyzer, PlatyPS, PSGallery publishing, or any request to set up a PowerShell module build system.
+description: This skill should be used when the user asks to "set up PowerShellBuild", "create a psakeFile with -FromModule", "configure PSBPreference", "publish a PowerShell module to PSGallery", "set up Pester tests for a module", or mentions PowerShellBuild, PSBPreference, -FromModule PowerShellBuild, PowerShellBuild.IB.Tasks, PSScriptAnalyzer integration, PlatyPS help generation, code coverage thresholds, or PowerShell module build/test/publish pipelines.
 ---
 
 # PowerShellBuild
@@ -15,10 +15,10 @@ PowerShellBuild provides standardized build, test, and publish tasks for PowerSh
 - **Not sure / starting fresh** → default to psake (simpler syntax)
 
 **What do you need?**
-- Set up a new module project → [Complete Example](#complete-example)
+- Set up a new module project → See `references/complete-example.md`
 - Override build behavior → [Configuration ($PSBPreference)](#configuration-psbpreference)
 - Customize task dependencies → [Modifying Task Dependencies](#modifying-task-dependencies)
-- CI/CD setup → [CI/CD Integration](#cicd-integration)
+- CI/CD setup → See `references/ci-cd.md`
 
 ## Quick Start
 
@@ -140,82 +140,6 @@ $PSBTestDependency    = 'Pester'      # skip analysis
 $PSBPublishDependency = 'Build'       # publish without tests (not recommended)
 ```
 
-## Complete Example
-
-### build.ps1
-
-```powershell
-[cmdletbinding(DefaultParameterSetName = 'Task')]
-param(
-    [parameter(ParameterSetName = 'Task', position = 0)]
-    [string[]]$Task = 'default',
-
-    [switch]$Bootstrap,
-
-    [parameter(ParameterSetName = 'Help')]
-    [switch]$Help
-)
-
-$ErrorActionPreference = 'Stop'
-
-if ($Bootstrap.IsPresent) {
-    Get-PackageProvider -Name Nuget -ForceBootstrap | Out-Null
-    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-    if (-not (Get-Module -Name PSDepend -ListAvailable)) {
-        Install-Module -Name PSDepend -Repository PSGallery -Scope CurrentUser
-    }
-    Import-Module -Name PSDepend -Verbose:$false
-    Invoke-PSDepend -Path './requirements.psd1' -Install -Import -Force -WarningAction SilentlyContinue
-}
-
-$psakeFile = './psakeFile.ps1'
-if ($PSCmdlet.ParameterSetName -eq 'Help') {
-    Get-PSakeScriptTasks -buildFile $psakeFile | Format-Table -Property Name, Description
-} else {
-    Set-BuildEnvironment -Force
-    Invoke-psake -buildFile $psakeFile -taskList $Task -Verbose:$VerbosePreference
-    exit ([int](-not $psake.build_success))
-}
-```
-
-### requirements.psd1
-
-```powershell
-@{
-    PSDependOptions  = @{ Target = 'CurrentUser' }
-    psake            = '4.9.0'
-    PowerShellBuild  = 'latest'
-    Pester           = @{
-        MinimumVersion = '5.6.1'
-        Parameters     = @{ SkipPublisherCheck = $true }
-    }
-    PSScriptAnalyzer = '1.24.0'
-    platyPS          = '0.14.2'
-}
-```
-
-### psakeFile.ps1 (full)
-
-```powershell
-properties {
-    $PSBPreference.Build.CompileModule             = $true
-    $PSBPreference.Build.CompileDirectories        = @('Enum', 'Classes', 'Private', 'Public')
-    $PSBPreference.Test.ScriptAnalysis.Enabled     = $true
-    $PSBPreference.Test.CodeCoverage.Enabled       = $true
-    $PSBPreference.Test.CodeCoverage.Threshold     = 0.80
-    $PSBPreference.Publish.PSRepositoryApiKey      = $env:PSGALLERY_API_KEY
-}
-
-task default -depends Test
-
-task Clean   -FromModule PowerShellBuild
-task Build   -FromModule PowerShellBuild
-task Analyze -FromModule PowerShellBuild
-task Pester  -FromModule PowerShellBuild
-task Test    -FromModule PowerShellBuild
-task Publish -FromModule PowerShellBuild
-```
-
 ## Invoke-Build Alternative
 
 ```powershell
@@ -226,37 +150,6 @@ $PSBPreference.Test.CodeCoverage.Enabled   = $true
 $PSBPreference.Test.CodeCoverage.Threshold = 0.75
 
 task . Build
-```
-
-## CI/CD Integration
-
-### GitHub Actions
-
-```yaml
-name: CI
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Test
-        shell: pwsh
-        run: ./build.ps1 -Task Test -Bootstrap
-
-  publish:
-    needs: test
-    runs-on: windows-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Publish
-        shell: pwsh
-        run: ./build.ps1 -Task Publish -Bootstrap
-        env:
-          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
 ```
 
 ## Troubleshooting
@@ -270,3 +163,8 @@ jobs:
 | ScriptAnalyzer fails build | Fix violations or set `FailBuildOnSeverityLevel = 'Warning'` |
 | Code coverage below threshold | Raise `CodeCoverage.Threshold` or add tests |
 | Publish fails | Verify `PSGALLERY_API_KEY` env var is set |
+
+## References
+
+- **`references/complete-example.md`** - Full project scaffold: build.ps1, requirements.psd1, psakeFile.ps1 with all tasks
+- **`references/ci-cd.md`** - GitHub Actions workflow for test and publish pipelines
