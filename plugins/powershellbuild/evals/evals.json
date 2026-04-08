@@ -5,19 +5,115 @@
       "id": 1,
       "prompt": "I'm starting a new PowerShell module project called 'PSUtilities'. It'll have Public and Private function folders and a tests/ directory with Pester 5 tests. Can you scaffold the full build system using PowerShellBuild — I need build.ps1, psakeFile.ps1, and requirements.psd1. I want code coverage at 80% and PSScriptAnalyzer enabled.",
       "expected_output": "Three files: build.ps1 (Bootstrap + Invoke-psake entry point), psakeFile.ps1 (Import-Module PowerShellBuild, properties block with PSBPreference settings for coverage threshold 0.80 and ScriptAnalysis, tasks using -FromModule PowerShellBuild), requirements.psd1 (psake, PowerShellBuild, Pester, PSScriptAnalyzer, platyPS). Structure follows PowerShellBuild conventions.",
-      "files": []
+      "files": [],
+      "assertions": [
+        {
+          "name": "has_all_three_files",
+          "type": "regex",
+          "value": "(?i)(build\\.ps1|psakeFile\\.ps1|requirements\\.psd1)",
+          "description": "Should generate build.ps1, psakeFile.ps1, and requirements.psd1"
+        },
+        {
+          "name": "uses_from_module",
+          "type": "contains",
+          "value": "-FromModule PowerShellBuild",
+          "description": "psakeFile.ps1 should use -FromModule PowerShellBuild for task definitions"
+        },
+        {
+          "name": "has_code_coverage_threshold",
+          "type": "regex",
+          "value": "CodeCoverage\\.Threshold\\s*=\\s*0\\.80",
+          "description": "Code coverage threshold should be set to 0.80 (80%)"
+        },
+        {
+          "name": "has_script_analysis_enabled",
+          "type": "regex",
+          "value": "ScriptAnalysis\\.Enabled\\s*=\\s*\\$true",
+          "description": "PSScriptAnalyzer should be explicitly enabled via PSBPreference"
+        },
+        {
+          "name": "has_required_dependencies",
+          "type": "regex",
+          "value": "(?i)(PowerShellBuild|psake|Pester|PSScriptAnalyzer)",
+          "description": "requirements.psd1 should include psake, PowerShellBuild, Pester, and PSScriptAnalyzer"
+        }
+      ]
     },
     {
       "id": 2,
       "prompt": "My PowerShellBuild project builds fine locally but I need to set up GitHub Actions CI. I want it to run tests on every push and PR, then publish to PSGallery automatically when I push to main. The API key should come from a GitHub secret called PSGALLERY_API_KEY.",
       "expected_output": "A GitHub Actions workflow YAML with two jobs: test (runs on push/PR, calls ./build.ps1 -Task Test -Bootstrap on windows-latest) and publish (depends on test, only on main branch, passes PSGALLERY_API_KEY secret as env var). Uses actions/checkout@v4.",
-      "files": []
+      "files": [],
+      "assertions": [
+        {
+          "name": "has_two_jobs",
+          "type": "regex",
+          "value": "(?i)(test:|publish:)",
+          "description": "Workflow should have separate test and publish jobs"
+        },
+        {
+          "name": "triggers_on_push_and_pr",
+          "type": "regex",
+          "value": "(?i)(push|pull_request)",
+          "description": "Test job should trigger on both push and pull_request events"
+        },
+        {
+          "name": "publish_only_on_main",
+          "type": "regex",
+          "value": "(?i)(refs/heads/main|github\\.ref.*main)",
+          "description": "Publish job should only run on main branch"
+        },
+        {
+          "name": "has_psgallery_secret",
+          "type": "contains",
+          "value": "PSGALLERY_API_KEY",
+          "description": "PSGALLERY_API_KEY should be passed from GitHub secrets"
+        },
+        {
+          "name": "uses_build_ps1",
+          "type": "regex",
+          "value": "(?i)(\\.[\\/]build\\.ps1|build\\.ps1)",
+          "description": "Workflow should call ./build.ps1 rather than Invoke-psake directly"
+        }
+      ]
     },
     {
       "id": 3,
       "prompt": "I want to use Invoke-Build instead of psake for my PowerShellBuild project. Can you show me how to set up the .build.ps1 file? I need to compile the module into a single PSM1 from Classes, Private, and Public folders, run code coverage, and exclude any .Tests.ps1 files from the build output.",
       "expected_output": "A .build.ps1 using Invoke-Build syntax: Import-Module PowerShellBuild -Force, . PowerShellBuild.IB.Tasks, then PSBPreference settings for CompileModule=$true, CompileDirectories=@('Classes','Private','Public'), Exclude=@('*.Tests.ps1'), CodeCoverage.Enabled=$true. Default task set to Build or Test.",
-      "files": []
+      "files": [],
+      "assertions": [
+        {
+          "name": "uses_ib_tasks",
+          "type": "contains",
+          "value": "PowerShellBuild.IB.Tasks",
+          "description": "Should use . PowerShellBuild.IB.Tasks to load Invoke-Build tasks"
+        },
+        {
+          "name": "has_compile_module",
+          "type": "regex",
+          "value": "CompileModule\\s*=\\s*\\$true",
+          "description": "CompileModule should be set to $true"
+        },
+        {
+          "name": "has_compile_directories",
+          "type": "regex",
+          "value": "CompileDirectories\\s*=",
+          "description": "CompileDirectories should include Classes, Private, and Public"
+        },
+        {
+          "name": "has_exclude_tests",
+          "type": "regex",
+          "value": "(?i)(Exclude.*Tests\\.ps1|Tests\\.ps1.*Exclude)",
+          "description": "Exclude pattern should filter out *.Tests.ps1 files"
+        },
+        {
+          "name": "has_code_coverage_enabled",
+          "type": "regex",
+          "value": "CodeCoverage\\.Enabled\\s*=\\s*\\$true",
+          "description": "Code coverage should be enabled via PSBPreference"
+        }
+      ]
     }
   ]
 }
