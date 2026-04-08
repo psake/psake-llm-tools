@@ -7,13 +7,13 @@
   },
   "metadata": {
     "description": "Claude skills for the psake PowerShell build automation ecosystem",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
       "name": "psake",
-      "source": "./psake",
+      "source": "./plugins/psake",
       "description": "psake PowerShell build automation — task-based build scripts for .NET, Node.js, Docker, and more",
       "version": "1.0.0",
       "author": {
