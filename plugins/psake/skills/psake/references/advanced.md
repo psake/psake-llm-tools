@@ -155,8 +155,12 @@ stages:
         steps:
           - pwsh: |
               Install-Module psake -Scope CurrentUser -Force
-              $result = Invoke-psake -taskList Build, Test `
-                -parameters @{ BuildNumber = '$(Build.BuildNumber)' } -Quiet
+              $psakeArgs = @{
+                taskList   = 'Build', 'Test'
+                parameters = @{ BuildNumber = '$(Build.BuildNumber)' }
+                Quiet      = $true
+              }
+              $result = Invoke-psake @psakeArgs
               if (-not $result.Success) { exit 1 }
             displayName: 'Build and Test'
           

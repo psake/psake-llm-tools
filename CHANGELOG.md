@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-04-22
+
+### Added
+
+- psake skill: Programmatic Invocation section with `-Quiet` as the
+  primary pattern for LLM agents, CI steps, and scripts — explains
+  why and shows `PsakeBuildResult` usage
+- psake skill: `build.ps1` entry-point template with
+  `ArgumentCompleter` for live task tab completion via
+  `Get-PSakeScriptTasks` (degrades gracefully if psake not loaded)
+- psake skill: PSDepend try-import-first bootstrap in `build.ps1`
+  template — skips install when modules are already cached, avoiding
+  file-lock contention on shared CI module caches
+
+### Changed
+
+- psake skill: Quick Start now shows `-Quiet` programmatic pattern
+  alongside the interactive form
+- psake skill: Azure Pipelines CI example converted from backtick
+  line continuation to splat
+
+### Fixed
+
+- marketplace: correct plugin source paths
+
+## [2.1.1] - 2026-04-07
+
+### Changed
+
+- Both skills: description now uses third-person trigger format
+  ("This skill should be used when the user asks to...")
+  for more reliable skill activation
+- powershellbuild skill: moved Complete Example and CI/CD
+  Integration to `references/` for progressive disclosure
+- powershellbuild skill: added References section pointing to
+  `references/complete-example.md` and `references/ci-cd.md`
+
+### Fixed
+
+- powershellbuild evals: added assertions to all 3 evals,
+  matching the psake eval format for automated validation
+
 ## [2.1.0] - 2026-04-01
 
 ### Added

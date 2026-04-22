@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "Claude skills for the psake PowerShell build automation ecosystem",
-    "version": "2.1.1",
+    "version": "2.2.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
