@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "I'm starting a new PowerShell module project called 'PSUtilities'. It'll have Public and Private function folders and a tests/ directory with Pester 5 tests. Can you scaffold the full build system using PowerShellBuild — I need build.ps1, psakeFile.ps1, and requirements.psd1. I want code coverage at 80% and PSScriptAnalyzer enabled.",
-      "expected_output": "Three files: build.ps1 (Bootstrap + Invoke-psake entry point), psakeFile.ps1 (Import-Module PowerShellBuild, properties block with PSBPreference settings for coverage threshold 0.80 and ScriptAnalysis, tasks using -FromModule PowerShellBuild), requirements.psd1 (psake, PowerShellBuild, Pester, PSScriptAnalyzer, platyPS). Structure follows PowerShellBuild conventions.",
+      "expected_output": "Three files: build.ps1 (Bootstrap + Invoke-psake entry point), psakeFile.ps1 (properties block with PSBPreference settings for coverage threshold 0.80 and ScriptAnalysis, tasks using -FromModule PowerShellBuild — no Import-Module PowerShellBuild statement), requirements.psd1 (psake, PowerShellBuild, Pester, PSScriptAnalyzer, platyPS). Structure follows PowerShellBuild conventions.",
       "files": [],
       "assertions": [
         {

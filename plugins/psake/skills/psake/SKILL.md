@@ -1,6 +1,6 @@
 ---
 name: psake
-description: PowerShell build automation tool for creating task-based build scripts. Use when Claude needs to create, modify, or troubleshoot psake build scripts (psakefile.ps1), automate builds for .NET/Node.js/Docker projects, set up CI/CD pipelines with psake (GitHub Actions, Azure Pipelines, GitLab CI), or work with PowerShell-based build automation. Triggers include mentions of psake, psakefile, PowerShell build scripts, Invoke-psake, build task dependencies, psake caching, PsakeBuildResult, or Get-PsakeBuildPlan.
+description: This skill should be used when the user asks to "create a psakefile", "set up a psake build", "add psake caching", "migrate to psake v5", "troubleshoot a psake build", or mentions psake, psakefile.ps1, Invoke-psake, build task dependencies, exec blocks, PsakeBuildResult, Get-PsakeBuildPlan, or PowerShell build automation for .NET, Node.js, or Docker projects. Also triggers on requests to set up CI/CD pipelines (GitHub Actions, Azure Pipelines, GitLab CI) using psake.
 ---
 
 # psake Build Automation
@@ -26,11 +26,18 @@ psake is a PowerShell build automation tool using a DSL for task-based builds wi
 # Install
 Install-Module -Name psake -Scope CurrentUser -Force
 
-# Run
+# Run — interactive (prints formatted output to console)
 Invoke-psake                              # Run 'Default' task
 Invoke-psake -taskList Build, Test        # Run specific tasks
 Invoke-psake -docs                        # Show task documentation
-Invoke-psake -OutputFormat JSON           # JSON output for CI
+
+# Run — programmatic: LLM agents, CI scripts, build.ps1 wrappers
+# -Quiet suppresses all console output and returns a PsakeBuildResult object.
+# Always use this form when you need to check success or read task results.
+$result = Invoke-psake -taskList Build, Test -Quiet
+$result.Success        # $true / $false — check this, don't parse console text
+$result.ErrorMessage   # populated when Success is $false
+$result.Tasks          # PsakeTaskResult[] — Name, Status, Duration, Cached
 ```
 
 ## Minimal psakefile.ps1
@@ -57,6 +64,106 @@ Task Test -depends Build {
     exec { dotnet test }
 }
 ```
+
+## Programmatic Invocation
+
+**Always use `-Quiet` when invoking psake from a script, CI step, or LLM agent.** Without it, psake streams formatted text to the console — noisy and unparseable. With it, psake returns a `PsakeBuildResult` object and produces no console output.
+
+```powershell
+$result = Invoke-psake -buildFile ./psakefile.ps1 -taskList Build, Test -Quiet
+
+if (-not $result.Success) {
+    Write-Error $result.ErrorMessage
+    exit 1
+}
+
+# Inspect task-level results
+$result.Tasks | ForEach-Object {
+    "$($_.Name): $($_.Status) ($($_.Duration.TotalSeconds)s)"
+}
+```
+
+### build.ps1 Entry-Point Template
+
+Projects often have a thin `build.ps1` wrapper that bootstraps dependencies and delegates to psake. Generate it with the `-Quiet` pattern so any caller — human or LLM — gets structured results:
+
+```powershell
+# build.ps1
+#
+# Usage (interactive):   ./build.ps1                 # default task
+#                        ./build.ps1 Build, Test     # specific tasks
+#                        ./build.ps1 -Bootstrap      # install deps first
+#
+# Usage (programmatic):  Invoke-psake -buildFile ./psakefile.ps1 -Quiet
+#   -Quiet returns a PsakeBuildResult (.Success, .Tasks, .ErrorMessage).
+#   Use that form directly in CI steps and LLM agents — skip this script.
+
+[CmdletBinding()]
+param(
+    [ArgumentCompleter({
+        param($Command, $Parameter, $WordToComplete, $CommandAst, $FakeBoundParams)
+        try {
+            Get-PSakeScriptTasks -BuildFile (Join-Path $PSScriptRoot 'psakefile.ps1') -ErrorAction Stop |
+                Where-Object { $_.Name -like "$WordToComplete*" } |
+                Select-Object -ExpandProperty Name
+        } catch { @() }
+    })]
+    [string[]]$Task = 'Default',
+
+    [switch]$Bootstrap
+)
+
+$ErrorActionPreference = 'Stop'
+
+if ($Bootstrap) {
+    if (-not (Get-Module -ListAvailable -Name PSDepend)) {
+        Install-Module -Name PSDepend -Scope CurrentUser -Force -AllowClobber
+    }
+    $psDependArgs = @{
+        Path          = $PSScriptRoot
+        Recurse       = $false
+        Install       = $true
+        Import        = $true
+        Force         = $true
+    }
+    Invoke-PSDepend @psDependArgs
+} else {
+    # Try importing cached modules first — avoids file-lock contention when CI
+    # jobs share a module cache and one job is mid-install.
+    $psDependArgs = @{
+        Path          = $PSScriptRoot
+        Recurse       = $false
+        Import        = $true
+        Force         = $true
+        WarningAction = 'SilentlyContinue'
+    }
+    $imported = $false
+    try { Invoke-PSDepend @psDependArgs; $imported = $true } catch {}
+
+    if (-not $imported) {
+        $psDependArgs['Install'] = $true
+        try {
+            Invoke-PSDepend @psDependArgs
+        } catch {
+            throw "Dependency install failed. If modules are locked, restart the build environment or re-run with -Bootstrap."
+        }
+    }
+}
+
+$psakeArgs = @{
+    buildFile = Join-Path $PSScriptRoot 'psakefile.ps1'
+    taskList  = $Task
+    Quiet     = $true
+}
+$result = Invoke-psake @psakeArgs
+
+if (-not $result.Success) {
+    Write-Error $result.ErrorMessage
+    exit 1
+}
+```
+
+> **For LLM agents:** skip `build.ps1` entirely. Call `Invoke-psake -Quiet` directly and inspect the returned `PsakeBuildResult` — you get structured data without spawning a child process or parsing output.
 
 ## Core Commands
 
