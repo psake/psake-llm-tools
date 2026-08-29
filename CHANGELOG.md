@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [psake 1.1.0] - 2026-08-29
+
+### Added
+
+- psake skill: Build-result reference for `PsakeBuildResult`,
+  `PsakeTaskResult`, diagnostics, and output-format contracts.
+
+### Changed
+
+- psake skill: LLM invocation guidance now prefers a quiet-capable
+  `build.ps1` entry point and minimizes emitted result data.
+- psake skill: Output guidance distinguishes `Quiet`, `JSON`,
+  `GitHubActions`, and `Annotated` by their intended consumer.
+
+
 ## [2.2.0] - 2026-04-22
 
 ### Added
