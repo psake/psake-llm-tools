@@ -159,7 +159,15 @@ if ($PSCmdlet.ParameterSetName -eq 'Help') {
     Get-PSakeScriptTasks -buildFile $psakeFile | Format-Table -Property Name, Description
 } else {
     Set-BuildEnvironment -Force
-    $result = Invoke-psake -buildFile $psakeFile -taskList $Task -Quiet
+    $psakeArgs = @{
+        buildFile = $psakeFile
+        taskList  = $Task
+        Quiet     = $VerbosePreference -ne 'Continue'
+    }
+    if ($VerbosePreference -eq 'Continue') {
+        $psakeArgs.Verbose = $true
+    }
+    $result = Invoke-psake @psakeArgs
     if (-not $result.Success) { [Console]::Error.WriteLine($result.ErrorMessage); exit 1 }
 }
 ```

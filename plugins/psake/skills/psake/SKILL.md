@@ -38,8 +38,8 @@ if (-not $result.Success) {
     [Console]::Error.WriteLine($result.ErrorMessage)
     exit 1
 }
-# When task data is needed, project only the fields needed:
-$result.Tasks | Select-Object Name, Status, Cached
+# When task data is needed, project only the fields needed and keep it local:
+$taskSummary = $result.Tasks | Select-Object Name, Status, Cached
 ```
 
 ## Minimal psakefile.ps1
@@ -79,8 +79,8 @@ if (-not $result.Success) {
     exit 1
 }
 
-# Project task results only when the caller needs them.
-$result.Tasks | Select-Object Name, Status, Cached
+# Project task results only when the caller needs them; do not emit them by default.
+$taskSummary = $result.Tasks | Select-Object Name, Status, Cached
 ```
 
 Use formatted output only for an interactive user or a CI annotation format that needs it.
@@ -92,9 +92,10 @@ Projects often have a thin `build.ps1` wrapper that bootstraps dependencies and 
 ```powershell
 # build.ps1
 #
-# Usage (interactive):   ./build.ps1                 # default task
+# Usage (quiet):         ./build.ps1                 # default task
 #                        ./build.ps1 Build, Test     # specific tasks
 #                        ./build.ps1 -Bootstrap      # install deps first
+# Transcript:             ./build.ps1 -Verbose
 #
 # Programmatic callers should invoke psake directly with -Quiet.
 
@@ -153,7 +154,10 @@ if ($Bootstrap) {
 $psakeArgs = @{
     buildFile = Join-Path $PSScriptRoot 'psakefile.ps1'
     taskList  = $Task
-    Quiet     = $true
+    Quiet     = $VerbosePreference -ne 'Continue'
+}
+if ($VerbosePreference -eq 'Continue') {
+    $psakeArgs.Verbose = $true
 }
 $result = Invoke-psake @psakeArgs
 

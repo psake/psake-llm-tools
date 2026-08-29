@@ -54,11 +54,13 @@ Rename-Item default.ps1 psakefile.ps1
 
 ### 3. Update Runner Scripts
 
+For automation, use the [Structured Output for CI](#structured-output-for-ci) pattern.
+
 ```powershell
 # Before (v4)
 & ./psake.ps1 Build
 
-# After (v5) — use the token-tight pattern from Structured Output for automation
+# After (v5)
 Import-Module psake
 $result = Invoke-psake -taskList Build -Quiet
 if (-not $result.Success) {
@@ -185,7 +187,7 @@ Or use `-OutputFormat JSON` and check the `Cached` property on each task result.
 `Invoke-psake -Quiet` returns a `PsakeBuildResult`. In token-sensitive automation, do not write `$result` or `.Error` to the pipeline: the error object duplicates and expands `.ErrorMessage`. Check `.Success`; emit only `.ErrorMessage` on failure. Project task fields only when needed:
 
 ```powershell
-$result.Tasks | Select-Object Name, Status, Cached
+$taskSummary = $result.Tasks | Select-Object Name, Status, Cached
 ```
 
 ### JSON Output
