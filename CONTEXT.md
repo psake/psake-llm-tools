@@ -45,6 +45,12 @@ _Avoid_: Annotated output
 Output-format selection based on its intended consumer: quiet automation for ordinary agents, JSON for an explicit complete report, GitHub Actions output for workflow annotations, and annotated output for VS Code problem matchers.
 _Avoid_: Generic CI output
 
+## Versioning
+
+**Marketplace catalog version**:
+The global API or schema version of the central marketplace registry, such as `marketplace.json`. It changes only when the marketplace data structure changes, not when an individual skill updates.
+_Avoid_: Skill version, marketplace release version
+
 ## Failure detail
 
 **Error summary**:
