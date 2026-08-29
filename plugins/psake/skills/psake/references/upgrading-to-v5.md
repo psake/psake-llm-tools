@@ -75,10 +75,11 @@ if (-not $result.Success) {
 # Before: psake-config.ps1
 $config.outputHandlers.writeOutput = { param($message, $type) ... }
 
-# After: Use built-in output formats
-Invoke-psake -OutputFormat GitHubActions   # CI annotations
-Invoke-psake -OutputFormat JSON            # Machine-readable
-Invoke-psake -Quiet                        # Suppress output, still returns result
+# After: Choose the format for its consumer
+Invoke-psake -OutputFormat GitHubActions   # GitHub workflow annotations
+Invoke-psake -OutputFormat Annotated       # VS Code problem matcher
+Invoke-psake -OutputFormat JSON            # Complete machine-readable report
+Invoke-psake -Quiet                        # LLM automation; returns PsakeBuildResult
 ```
 
 To suppress colored output, set the `NO_COLOR` environment variable.
@@ -178,29 +179,23 @@ Test     00:00:01.340    False
 Total:   00:00:01.353
 ```
 
-Or use `-OutputFormat JSON` and check the `Cached` property on each task result.
-
 ## Structured Output for CI
 
-### PsakeBuildResult
-
-`Invoke-psake -Quiet` returns a `PsakeBuildResult`. In token-sensitive automation, do not write `$result` or `.Error` to the pipeline: the error object duplicates and expands `.ErrorMessage`. Check `.Success`; emit only `.ErrorMessage` on failure. Project task fields only when needed:
-
-```powershell
-$taskSummary = $result.Tasks | Select-Object Name, Status, Cached
-```
+For `PsakeBuildResult`, `PsakeTaskResult`, and all output-format return contracts, see [build-results.md](build-results.md).
 
 ### JSON Output
 
+Use JSON only for an explicit complete report or a persisted CI artifact:
+
 ```powershell
-# Pipe JSON to a file for CI artifacts
 Invoke-psake -OutputFormat JSON > build-result.json
 ```
 
-### GitHub Actions Annotations
+### Annotations
 
 ```powershell
-Invoke-psake -OutputFormat GitHubActions
+Invoke-psake -OutputFormat GitHubActions   # GitHub workflow annotations
+Invoke-psake -OutputFormat Annotated       # VS Code problem matcher
 ```
 
 Errors and warnings appear as inline annotations on the PR diff.
