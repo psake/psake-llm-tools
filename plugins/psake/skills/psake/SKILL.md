@@ -1,6 +1,6 @@
 ---
 name: psake
-description: This skill should be used when the user asks to "create a psakefile", "set up a psake build", "add psake caching", "migrate to psake v5", "troubleshoot a psake build", or mentions psake, psakefile.ps1, Invoke-psake, build task dependencies, exec blocks, PsakeBuildResult, Get-PsakeBuildPlan, or PowerShell build automation for .NET, Node.js, or Docker projects. Also triggers on requests to set up CI/CD pipelines (GitHub Actions, Azure Pipelines, GitLab CI) using psake.
+description: psake build automation: Use when creating, migrating, troubleshooting, or integrating psake/psakefile.ps1 builds, or working with Invoke-psake, task dependencies, caching, or PsakeBuildResult.
 ---
 
 # psake Build Automation
@@ -31,13 +31,15 @@ Invoke-psake                              # Run 'Default' task
 Invoke-psake -taskList Build, Test        # Run specific tasks
 Invoke-psake -docs                        # Show task documentation
 
-# Run — programmatic: LLM agents, CI scripts, build.ps1 wrappers
-# -Quiet suppresses all console output and returns a PsakeBuildResult object.
-# Always use this form when you need to check success or read task results.
+# Run — LLM automation through a quiet-capable build.ps1 entry point
+# Preflight build.ps1: its quiet option must forward to Invoke-psake and keep the result local.
+./build.ps1 -OutputFormat Quiet
+# If no quiet-capable entry point exists, invoke psake directly:
 $result = Invoke-psake -taskList Build, Test -Quiet
-$result.Success        # $true / $false — check this, don't parse console text
-$result.ErrorMessage   # populated when Success is $false
-$result.Tasks          # PsakeTaskResult[] — Name, Status, Duration, Cached
+if (-not $result.Success) {
+    [Console]::Error.WriteLine($result.ErrorMessage)
+    exit 1
+}
 ```
 
 ## Minimal psakefile.ps1
@@ -67,36 +69,33 @@ Task Test -depends Build {
 
 ## Programmatic Invocation
 
-**Always use `-Quiet` when invoking psake from a script, CI step, or LLM agent.** Without it, psake streams formatted text to the console — noisy and unparseable. With it, psake returns a `PsakeBuildResult` object and produces no console output.
+For LLM automation, inspect `build.ps1` before invoking it. Use its quiet option only when it forwards to `Invoke-psake -Quiet` and does not emit its captured result. Otherwise, invoke psake directly with `-Quiet`. `-Quiet` suppresses psake-generated output and returns `PsakeBuildResult`; wrapper-authored host output is separate.
 
 ```powershell
 $result = Invoke-psake -buildFile ./psakefile.ps1 -taskList Build, Test -Quiet
 
 if (-not $result.Success) {
-    Write-Error $result.ErrorMessage
+    [Console]::Error.WriteLine($result.ErrorMessage)
     exit 1
 }
 
-# Inspect task-level results
-$result.Tasks | ForEach-Object {
-    "$($_.Name): $($_.Status) ($($_.Duration.TotalSeconds)s)"
-}
+# Keep task data local unless the caller explicitly needs it.
+$taskSummary = $result.Tasks | Select-Object Name, Status, Cached
 ```
+
+Use the [build result reference](references/build-results.md) for result properties, diagnostics, and consumer-specific output formats.
 
 ### build.ps1 Entry-Point Template
 
-Projects often have a thin `build.ps1` wrapper that bootstraps dependencies and delegates to psake. Generate it with the `-Quiet` pattern so any caller — human or LLM — gets structured results:
+Projects often have a thin `build.ps1` wrapper that bootstraps dependencies and delegates to psake. Give it an explicit output format so callers can choose quiet automation, interactive output, or an annotation/report consumer:
 
 ```powershell
 # build.ps1
 #
-# Usage (interactive):   ./build.ps1                 # default task
-#                        ./build.ps1 Build, Test     # specific tasks
-#                        ./build.ps1 -Bootstrap      # install deps first
-#
-# Usage (programmatic):  Invoke-psake -buildFile ./psakefile.ps1 -Quiet
-#   -Quiet returns a PsakeBuildResult (.Success, .Tasks, .ErrorMessage).
-#   Use that form directly in CI steps and LLM agents — skip this script.
+# Usage: ./build.ps1                             # interactive output
+#        ./build.ps1 Build, Test -OutputFormat Quiet
+#        ./build.ps1 -OutputFormat JSON          # complete report
+#        ./build.ps1 -Bootstrap                  # install deps first
 
 [CmdletBinding()]
 param(
@@ -109,6 +108,9 @@ param(
         } catch { @() }
     })]
     [string[]]$Task = 'Default',
+
+    [ValidateSet('Default', 'Quiet', 'JSON', 'GitHubActions', 'Annotated')]
+    [string]$OutputFormat = 'Default',
 
     [switch]$Bootstrap
 )
@@ -153,17 +155,27 @@ if ($Bootstrap) {
 $psakeArgs = @{
     buildFile = Join-Path $PSScriptRoot 'psakefile.ps1'
     taskList  = $Task
-    Quiet     = $true
+}
+if ($OutputFormat -eq 'Quiet') {
+    $psakeArgs.Quiet = $true
+} else {
+    $psakeArgs.OutputFormat = $OutputFormat
 }
 $result = Invoke-psake @psakeArgs
 
+if ($OutputFormat -eq 'JSON') {
+    $report = $result | ConvertFrom-Json
+    $result
+    exit ([int](-not $report.Success))
+}
+
 if (-not $result.Success) {
-    Write-Error $result.ErrorMessage
+    [Console]::Error.WriteLine($result.ErrorMessage)
     exit 1
 }
 ```
 
-> **For LLM agents:** skip `build.ps1` entirely. Call `Invoke-psake -Quiet` directly and inspect the returned `PsakeBuildResult` — you get structured data without spawning a child process or parsing output.
+> **For LLM agents:** use the project's quiet-capable `build.ps1` entry point when available. Otherwise call `Invoke-psake -Quiet` directly; keep `PsakeBuildResult` local and emit only `.ErrorMessage` on failure.
 
 ## Core Commands
 
@@ -290,23 +302,7 @@ TaskTearDown { Write-Host "Finished: $($psake.context.currentTaskName)" }
 
 ## Structured Output
 
-`Invoke-psake` returns a `PsakeBuildResult` object:
-
-```powershell
-$result = Invoke-psake -Quiet
-$result.Success          # $true / $false
-$result.Duration         # TimeSpan
-$result.Tasks            # PsakeTaskResult[] with Name, Status, Duration, Cached
-$result.ErrorMessage     # Error details if failed
-```
-
-The `$psake.build_success` variable is still set after each build for backward compatibility.
-
-For CI pipelines, use JSON output:
-
-```powershell
-Invoke-psake -OutputFormat JSON
-```
+`-Quiet` returns `PsakeBuildResult` without psake-generated output. Do not emit the result or its `ErrorRecord` array; use `.ErrorMessage` by default and project targeted diagnostics only when troubleshooting. See [references/build-results.md](references/build-results.md) for the complete result model and output-format contracts.
 
 ## Invoke-psake Parameters
 
@@ -318,10 +314,10 @@ Invoke-psake -OutputFormat JSON
 | `-properties` | Hashtable to override Properties block (set after Properties) |
 | `-docs` | Display task documentation |
 | `-nologo` | Suppress banner |
-| `-OutputFormat` | `Default`, `JSON`, or `GitHubActions` (v5) |
+| `-OutputFormat` | `Default`, `JSON`, `GitHubActions`, or `Annotated`; choose by output consumer |
 | `-NoCache` | Bypass task caching for this run (v5) |
 | `-CompileOnly` | Return build plan without executing (v5) |
-| `-Quiet` | Suppress console output; still returns PsakeBuildResult (v5) |
+| `-Quiet` | Suppress psake-generated output and return `PsakeBuildResult`; use for LLM automation |
 
 ## Testability APIs
 
@@ -335,10 +331,14 @@ $plan.IsValid           # $true
 $plan.ValidationErrors  # @()
 ```
 
-The plan can also be piped into `Invoke-psake`:
+The plan can also be passed to `Invoke-psake` without emitting the full result:
 
 ```powershell
-Get-PsakeBuildPlan | Invoke-psake
+$result = Get-PsakeBuildPlan | Invoke-psake -Quiet
+if (-not $result.Success) {
+    [Console]::Error.WriteLine($result.ErrorMessage)
+    exit 1
+}
 ```
 
 ### Test a Task in Isolation
@@ -443,9 +443,12 @@ else { Write-Host "✓ Syntax valid" -ForegroundColor Green }
 | Task skipped unexpectedly | May be cached — run with `-NoCache` or `Clear-PsakeCache` |
 | `default.ps1` not found | v5 removed `default.ps1` fallback — rename to `psakefile.ps1` |
 
+For psake situations not covered by these focused references, consult the external documentation index at [psake.dev/llms.txt](https://psake.dev/llms.txt). Use [psake.dev/llms-full.txt](https://psake.dev/llms-full.txt) when the complete documentation corpus is needed.
+
 ## References
 
 - **references/upgrading-to-v5.md** - Migration guide, caching for faster builds, structured output, testability APIs
 - **references/powershell-modules.md** - PowerShellBuild module for PS module development
 - **references/build-types.md** - .NET, Node.js, Docker build patterns
 - **references/advanced.md** - Dynamic tasks, CI/CD integration, $psake reference
+- **references/build-results.md** - `PsakeBuildResult`, `PsakeTaskResult`, diagnostics, and output-format contracts

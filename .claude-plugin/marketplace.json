@@ -15,7 +15,7 @@
       "name": "psake",
       "source": "./plugins/psake",
       "description": "psake PowerShell build automation — task-based build scripts for .NET, Node.js, Docker, and more",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "psake",
         "email": "team@psake.dev"

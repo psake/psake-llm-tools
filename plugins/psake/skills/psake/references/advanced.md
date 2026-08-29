@@ -128,7 +128,12 @@ jobs:
       - name: Publish
         if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest'
         shell: pwsh
-        run: Invoke-psake -taskList Publish
+        run: |
+          $result = Invoke-psake -taskList Publish -Quiet
+          if (-not $result.Success) {
+            [Console]::Error.WriteLine($result.ErrorMessage)
+            exit 1
+          }
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 ```
@@ -161,8 +166,10 @@ stages:
                 Quiet      = $true
               }
               $result = Invoke-psake @psakeArgs
-              if (-not $result.Success) { exit 1 }
-            displayName: 'Build and Test'
+              if (-not $result.Success) {
+                [Console]::Error.WriteLine($result.ErrorMessage)
+                exit 1
+              }
           
           - publish: $(System.DefaultWorkingDirectory)/build
             artifact: BuildOutput
@@ -176,7 +183,12 @@ stages:
           runOnce:
             deploy:
               steps:
-                - pwsh: Invoke-psake -taskList Publish
+                - pwsh: |
+                    $result = Invoke-psake -taskList Publish -Quiet
+                    if (-not $result.Success) {
+                      [Console]::Error.WriteLine($result.ErrorMessage)
+                      exit 1
+                    }
                   env:
                     NUGET_API_KEY: $(NuGetApiKey)
 ```
@@ -205,7 +217,7 @@ before_script:
 build:
   stage: build
   script:
-    - pwsh -c "Invoke-psake -taskList Build"
+    - pwsh -c '$result = Invoke-psake -taskList Build -Quiet; if (-not $result.Success) { [Console]::Error.WriteLine($result.ErrorMessage); exit 1 }'
   artifacts:
     paths:
       - build/
@@ -213,7 +225,7 @@ build:
 test:
   stage: test
   script:
-    - pwsh -c "Invoke-psake -taskList Test"
+    - pwsh -c '$result = Invoke-psake -taskList Test -Quiet; if (-not $result.Success) { [Console]::Error.WriteLine($result.ErrorMessage); exit 1 }'
   artifacts:
     reports:
       junit: TestResults/*.xml
@@ -221,7 +233,7 @@ test:
 deploy:
   stage: deploy
   script:
-    - pwsh -c "Invoke-psake -taskList Publish"
+    - pwsh -c '$result = Invoke-psake -taskList Publish -Quiet; if (-not $result.Success) { [Console]::Error.WriteLine($result.ErrorMessage); exit 1 }'
   environment:
     name: production
   only:

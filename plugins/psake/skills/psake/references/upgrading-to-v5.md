@@ -54,13 +54,19 @@ Rename-Item default.ps1 psakefile.ps1
 
 ### 3. Update Runner Scripts
 
+For automation, use the [Structured Output for CI](#structured-output-for-ci) pattern.
+
 ```powershell
 # Before (v4)
 & ./psake.ps1 Build
 
 # After (v5)
 Import-Module psake
-Invoke-psake -taskList Build
+$result = Invoke-psake -taskList Build -Quiet
+if (-not $result.Success) {
+    [Console]::Error.WriteLine($result.ErrorMessage)
+    exit 1
+}
 ```
 
 ### 4. Replace Output Handler Customization
@@ -69,25 +75,23 @@ Invoke-psake -taskList Build
 # Before: psake-config.ps1
 $config.outputHandlers.writeOutput = { param($message, $type) ... }
 
-# After: Use built-in output formats
-Invoke-psake -OutputFormat GitHubActions   # CI annotations
-Invoke-psake -OutputFormat JSON            # Machine-readable
-Invoke-psake -Quiet                        # Suppress output, still returns result
+# After: Choose the format for its consumer
+Invoke-psake -OutputFormat GitHubActions   # GitHub workflow annotations
+Invoke-psake -OutputFormat Annotated       # VS Code problem matcher
+Invoke-psake -OutputFormat JSON            # Complete machine-readable report
+Invoke-psake -Quiet                        # LLM automation; returns PsakeBuildResult
 ```
 
 To suppress colored output, set the `NO_COLOR` environment variable.
 
 ### 5. Update CI Scripts That Check Build Success
 
-```powershell
-# Before — still works, no change needed
-Invoke-psake
-if (!$psake.build_success) { exit 1 }
+For scripts, CI steps without annotations, and agents, use `-Quiet`. Keep the returned object local: success produces no output, while a failure produces only the message rather than the result's full error object.
 
-# After — cleaner with structured result
+```powershell
 $result = Invoke-psake -Quiet
 if (-not $result.Success) {
-    Write-Error $result.ErrorMessage
+    [Console]::Error.WriteLine($result.ErrorMessage)
     exit 1
 }
 ```
@@ -175,44 +179,23 @@ Test     00:00:01.340    False
 Total:   00:00:01.353
 ```
 
-Or use `-OutputFormat JSON` and check the `Cached` property on each task result.
-
 ## Structured Output for CI
 
-### PsakeBuildResult
-
-`Invoke-psake` now returns a `PsakeBuildResult`:
-
-```powershell
-$result = Invoke-psake -Quiet
-
-$result.Success          # $true / $false
-$result.Duration         # [TimeSpan]
-$result.BuildFile        # Path to build script
-$result.ErrorMessage     # Error details if failed
-$result.Tasks            # PsakeTaskResult[] array
-```
-
-Each task result contains:
-
-```powershell
-$result.Tasks[0].Name      # 'Build'
-$result.Tasks[0].Status    # 'Executed', 'Skipped', 'Failed', 'Cached'
-$result.Tasks[0].Duration  # [TimeSpan]
-$result.Tasks[0].Cached    # $true / $false
-```
+For `PsakeBuildResult`, `PsakeTaskResult`, and all output-format return contracts, see [build-results.md](build-results.md).
 
 ### JSON Output
 
+Use JSON only for an explicit complete report or a persisted CI artifact:
+
 ```powershell
-# Pipe JSON to a file for CI artifacts
 Invoke-psake -OutputFormat JSON > build-result.json
 ```
 
-### GitHub Actions Annotations
+### Annotations
 
 ```powershell
-Invoke-psake -OutputFormat GitHubActions
+Invoke-psake -OutputFormat GitHubActions   # GitHub workflow annotations
+Invoke-psake -OutputFormat Annotated       # VS Code problem matcher
 ```
 
 Errors and warnings appear as inline annotations on the PR diff.

@@ -136,6 +136,9 @@ param(
     [parameter(ParameterSetName = 'Task', position = 0)]
     [string[]]$Task = 'default',
 
+    [ValidateSet('Default', 'Quiet', 'JSON', 'GitHubActions', 'Annotated')]
+    [string]$OutputFormat = 'Default',
+
     [switch]$Bootstrap,
 
     [parameter(ParameterSetName = 'Help')]
@@ -159,8 +162,24 @@ if ($PSCmdlet.ParameterSetName -eq 'Help') {
     Get-PSakeScriptTasks -buildFile $psakeFile | Format-Table -Property Name, Description
 } else {
     Set-BuildEnvironment -Force
-    Invoke-psake -buildFile $psakeFile -taskList $Task -Verbose:$VerbosePreference
-    exit ([int](-not $psake.build_success))
+    $psakeArgs = @{
+        buildFile = $psakeFile
+        taskList  = $Task
+    }
+    if ($OutputFormat -eq 'Quiet') {
+        $psakeArgs.Quiet = $true
+    } else {
+        $psakeArgs.OutputFormat = $OutputFormat
+    }
+    $result = Invoke-psake @psakeArgs
+
+    if ($OutputFormat -eq 'JSON') {
+        $report = $result | ConvertFrom-Json
+        $result
+        exit ([int](-not $report.Success))
+    }
+
+    if (-not $result.Success) { [Console]::Error.WriteLine($result.ErrorMessage); exit 1 }
 }
 ```
 
