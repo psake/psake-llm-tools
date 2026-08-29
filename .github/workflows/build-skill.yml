@@ -1,111 +1,86 @@
 name: Release Skill Packages
 
 on:
-  workflow_dispatch:
-    inputs:
-      skill:
-        description: Skill package to release
-        required: true
-        type: choice
-        options:
-          - psake
-          - powershellbuild
-          - all
-      version:
-        description: Release version without the v prefix (e.g., 1.1.0)
-        required: true
-        type: string
   push:
-    tags:
-      - "v*"
-      - "psake-v*"
-      - "powershellbuild-v*"
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  detect-releases:
     runs-on: ubuntu-latest
+    outputs:
+      has_releases: ${{ steps.versions.outputs.has_releases }}
+      matrix: ${{ steps.versions.outputs.matrix }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed skill versions
+        id: versions
+        run: |
+          releases=()
+          for skill in psake powershellbuild; do
+            current=$(jq -r --arg skill "$skill" '.plugins[] | select(.name == $skill) | .version' .claude-plugin/marketplace.json)
+            previous=$(git show HEAD^:.claude-plugin/marketplace.json 2>/dev/null | jq -r --arg skill "$skill" '.plugins[] | select(.name == $skill) | .version' || true)
+            if [ -n "$current" ] && [ "$current" != "$previous" ]; then
+              releases+=("{\"skill\":\"$skill\",\"version\":\"$current\"}")
+            fi
+          done
+          if [ ${#releases[@]} -eq 0 ]; then
+            echo 'has_releases=false' >> $GITHUB_OUTPUT
+            echo 'matrix={"include":[]}' >> $GITHUB_OUTPUT
+          else
+            matrix=$(IFS=,; echo "${releases[*]}")
+            echo 'has_releases=true' >> $GITHUB_OUTPUT
+            echo "matrix={\"include\":[${matrix}]}" >> $GITHUB_OUTPUT
+          fi
+
+  release:
+    needs: detect-releases
+    if: needs.detect-releases.outputs.has_releases == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.detect-releases.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Determine release
-        id: release
+      - name: Create skill archive
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SKILL="${{ github.event.inputs.skill }}"
-            VERSION="${{ github.event.inputs.version }}"
-            TAG="${SKILL}-v${VERSION}"
-            if [ "$SKILL" = "all" ]; then
-              TAG="v${VERSION}"
-            fi
-          else
-            TAG="${{ github.ref_name }}"
-            case "$TAG" in
-              psake-v*)
-                SKILL="psake"
-                VERSION="${TAG#psake-v}"
-                ;;
-              powershellbuild-v*)
-                SKILL="powershellbuild"
-                VERSION="${TAG#powershellbuild-v}"
-                ;;
-              v*)
-                SKILL="all"
-                VERSION="${TAG#v}"
-                ;;
-              *)
-                echo "Unsupported release tag: $TAG" >&2
-                exit 1
-                ;;
-            esac
-          fi
-          echo "skill=$SKILL" >> $GITHUB_OUTPUT
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "## Releasing $SKILL $TAG" >> $GITHUB_STEP_SUMMARY
+          cd "plugins/${{ matrix.skill }}/skills/${{ matrix.skill }}"
+          zip -r "$GITHUB_WORKSPACE/${{ matrix.skill }}.skill" .
 
-      - name: Create skill archives
-        run: |
-          if [ "${{ steps.release.outputs.skill }}" = "all" ]; then
-            SKILLS="psake powershellbuild"
-          else
-            SKILLS="${{ steps.release.outputs.skill }}"
-          fi
-          for skill in $SKILLS; do
-            (
-              cd "plugins/$skill/skills/$skill"
-              zip -r "$GITHUB_WORKSPACE/$skill.skill" .
-            )
-          done
-
-      - name: Upload skill artifacts
+      - name: Upload skill artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.release.outputs.skill }}-skill-packages
-          path: "*.skill"
+          name: ${{ matrix.skill }}-v${{ matrix.version }}
+          path: ${{ matrix.skill }}.skill
           retention-days: 90
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          name: ${{ steps.release.outputs.skill }} ${{ steps.release.outputs.tag }}
+          tag_name: ${{ matrix.skill }}-v${{ matrix.version }}
+          name: ${{ matrix.skill }} v${{ matrix.version }}
           draft: false
           prerelease: false
-          files: "*.skill"
+          files: ${{ matrix.skill }}.skill
           body: |
-            ## psake Skill Packages
+            ## ${{ matrix.skill }} Skill Package
 
-            This release contains the selected Claude skill package or packages.
+            This release contains the `${{ matrix.skill }}.skill` package.
 
             **Marketplace:** Add the marketplace in Claude Code:
             ```
             /plugin marketplace add https://github.com/psake/psake-llm-tools
             ```
 
-            **Direct download:** Download a `.skill` file and upload it to Claude.
+            **Direct download:** Download the `.skill` file and upload it to Claude.
           generate_release_notes: true
