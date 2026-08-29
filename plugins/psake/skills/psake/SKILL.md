@@ -1,6 +1,6 @@
 ---
 name: psake
-description: This skill should be used when the user asks to "create a psakefile", "set up a psake build", "add psake caching", "migrate to psake v5", "troubleshoot a psake build", or mentions psake, psakefile.ps1, Invoke-psake, build task dependencies, exec blocks, PsakeBuildResult, Get-PsakeBuildPlan, or PowerShell build automation for .NET, Node.js, or Docker projects. Also triggers on requests to set up CI/CD pipelines (GitHub Actions, Azure Pipelines, GitLab CI) using psake.
+description: psake build automation: Use when creating, migrating, troubleshooting, or integrating psake/psakefile.ps1 builds, or working with Invoke-psake, task dependencies, caching, or PsakeBuildResult.
 ---
 
 # psake Build Automation
@@ -31,13 +31,15 @@ Invoke-psake                              # Run 'Default' task
 Invoke-psake -taskList Build, Test        # Run specific tasks
 Invoke-psake -docs                        # Show task documentation
 
-# Run — programmatic: LLM agents, CI scripts, build.ps1 wrappers
-# -Quiet suppresses all console output and returns a PsakeBuildResult object.
-# Always use this form when you need to check success or read task results.
+# Run — programmatic: agents, CI scripts, build.ps1 wrappers
+# -Quiet produces no console output. Capture the result; emit nothing on success.
 $result = Invoke-psake -taskList Build, Test -Quiet
-$result.Success        # $true / $false — check this, don't parse console text
-$result.ErrorMessage   # populated when Success is $false
-$result.Tasks          # PsakeTaskResult[] — Name, Status, Duration, Cached
+if (-not $result.Success) {
+    [Console]::Error.WriteLine($result.ErrorMessage)
+    exit 1
+}
+# When task data is needed, project only the fields needed:
+$result.Tasks | Select-Object Name, Status, Cached
 ```
 
 ## Minimal psakefile.ps1
@@ -67,25 +69,25 @@ Task Test -depends Build {
 
 ## Programmatic Invocation
 
-**Always use `-Quiet` when invoking psake from a script, CI step, or LLM agent.** Without it, psake streams formatted text to the console — noisy and unparseable. With it, psake returns a `PsakeBuildResult` object and produces no console output.
+**Use the token-tight `-Quiet` pattern for every agent, CI, or script invocation.** `-Quiet` suppresses psake's formatted console output while returning `PsakeBuildResult`. Capture that object; successful builds emit nothing. On failure, emit only `.ErrorMessage`—never `$result` or `.Error`, which serializes the full error object alongside its message.
 
 ```powershell
 $result = Invoke-psake -buildFile ./psakefile.ps1 -taskList Build, Test -Quiet
 
 if (-not $result.Success) {
-    Write-Error $result.ErrorMessage
+    [Console]::Error.WriteLine($result.ErrorMessage)
     exit 1
 }
 
-# Inspect task-level results
-$result.Tasks | ForEach-Object {
-    "$($_.Name): $($_.Status) ($($_.Duration.TotalSeconds)s)"
-}
+# Project task results only when the caller needs them.
+$result.Tasks | Select-Object Name, Status, Cached
 ```
+
+Use formatted output only for an interactive user or a CI annotation format that needs it.
 
 ### build.ps1 Entry-Point Template
 
-Projects often have a thin `build.ps1` wrapper that bootstraps dependencies and delegates to psake. Generate it with the `-Quiet` pattern so any caller — human or LLM — gets structured results:
+Projects often have a thin `build.ps1` wrapper that bootstraps dependencies and delegates to psake. Use the token-tight `-Quiet` pattern so callers receive no build transcript:
 
 ```powershell
 # build.ps1
@@ -94,9 +96,7 @@ Projects often have a thin `build.ps1` wrapper that bootstraps dependencies and 
 #                        ./build.ps1 Build, Test     # specific tasks
 #                        ./build.ps1 -Bootstrap      # install deps first
 #
-# Usage (programmatic):  Invoke-psake -buildFile ./psakefile.ps1 -Quiet
-#   -Quiet returns a PsakeBuildResult (.Success, .Tasks, .ErrorMessage).
-#   Use that form directly in CI steps and LLM agents — skip this script.
+# Programmatic callers should invoke psake directly with -Quiet.
 
 [CmdletBinding()]
 param(
@@ -158,12 +158,12 @@ $psakeArgs = @{
 $result = Invoke-psake @psakeArgs
 
 if (-not $result.Success) {
-    Write-Error $result.ErrorMessage
+    [Console]::Error.WriteLine($result.ErrorMessage)
     exit 1
 }
 ```
 
-> **For LLM agents:** skip `build.ps1` entirely. Call `Invoke-psake -Quiet` directly and inspect the returned `PsakeBuildResult` — you get structured data without spawning a child process or parsing output.
+> **For LLM agents:** skip `build.ps1` entirely. Call `Invoke-psake -Quiet` directly; keep the result local, and emit only `.ErrorMessage` on failure.
 
 ## Core Commands
 
@@ -290,23 +290,7 @@ TaskTearDown { Write-Host "Finished: $($psake.context.currentTaskName)" }
 
 ## Structured Output
 
-`Invoke-psake` returns a `PsakeBuildResult` object:
-
-```powershell
-$result = Invoke-psake -Quiet
-$result.Success          # $true / $false
-$result.Duration         # TimeSpan
-$result.Tasks            # PsakeTaskResult[] with Name, Status, Duration, Cached
-$result.ErrorMessage     # Error details if failed
-```
-
-The `$psake.build_success` variable is still set after each build for backward compatibility.
-
-For CI pipelines, use JSON output:
-
-```powershell
-Invoke-psake -OutputFormat JSON
-```
+`-Quiet` returns `PsakeBuildResult` without a transcript. Follow the token-tight pattern in [Programmatic Invocation](#programmatic-invocation): keep `$result` local, emit only `.ErrorMessage` on failure, and project task fields only when needed. Use `-OutputFormat JSON` or `-OutputFormat GitHubActions` only when CI requires artifacts or annotations.
 
 ## Invoke-psake Parameters
 
@@ -321,7 +305,7 @@ Invoke-psake -OutputFormat JSON
 | `-OutputFormat` | `Default`, `JSON`, or `GitHubActions` (v5) |
 | `-NoCache` | Bypass task caching for this run (v5) |
 | `-CompileOnly` | Return build plan without executing (v5) |
-| `-Quiet` | Suppress console output; still returns PsakeBuildResult (v5) |
+| `-Quiet` | Suppress console output and return `PsakeBuildResult`; use for agents, scripts, and CI that does not require formatted annotations |
 
 ## Testability APIs
 
@@ -335,10 +319,11 @@ $plan.IsValid           # $true
 $plan.ValidationErrors  # @()
 ```
 
-The plan can also be piped into `Invoke-psake`:
+The plan can also be passed to `Invoke-psake` without emitting the full result:
 
 ```powershell
-Get-PsakeBuildPlan | Invoke-psake
+$result = Get-PsakeBuildPlan | Invoke-psake -Quiet
+$result.Success
 ```
 
 ### Test a Task in Isolation

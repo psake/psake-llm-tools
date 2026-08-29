@@ -58,9 +58,13 @@ Rename-Item default.ps1 psakefile.ps1
 # Before (v4)
 & ./psake.ps1 Build
 
-# After (v5)
+# After (v5) — use the token-tight pattern from Structured Output for automation
 Import-Module psake
-Invoke-psake -taskList Build
+$result = Invoke-psake -taskList Build -Quiet
+if (-not $result.Success) {
+    [Console]::Error.WriteLine($result.ErrorMessage)
+    exit 1
+}
 ```
 
 ### 4. Replace Output Handler Customization
@@ -79,15 +83,12 @@ To suppress colored output, set the `NO_COLOR` environment variable.
 
 ### 5. Update CI Scripts That Check Build Success
 
-```powershell
-# Before — still works, no change needed
-Invoke-psake
-if (!$psake.build_success) { exit 1 }
+For scripts, CI steps without annotations, and agents, use `-Quiet`. Keep the returned object local: success produces no output, while a failure produces only the message rather than the result's full error object.
 
-# After — cleaner with structured result
+```powershell
 $result = Invoke-psake -Quiet
 if (-not $result.Success) {
-    Write-Error $result.ErrorMessage
+    [Console]::Error.WriteLine($result.ErrorMessage)
     exit 1
 }
 ```
@@ -181,25 +182,10 @@ Or use `-OutputFormat JSON` and check the `Cached` property on each task result.
 
 ### PsakeBuildResult
 
-`Invoke-psake` now returns a `PsakeBuildResult`:
+`Invoke-psake -Quiet` returns a `PsakeBuildResult`. In token-sensitive automation, do not write `$result` or `.Error` to the pipeline: the error object duplicates and expands `.ErrorMessage`. Check `.Success`; emit only `.ErrorMessage` on failure. Project task fields only when needed:
 
 ```powershell
-$result = Invoke-psake -Quiet
-
-$result.Success          # $true / $false
-$result.Duration         # [TimeSpan]
-$result.BuildFile        # Path to build script
-$result.ErrorMessage     # Error details if failed
-$result.Tasks            # PsakeTaskResult[] array
-```
-
-Each task result contains:
-
-```powershell
-$result.Tasks[0].Name      # 'Build'
-$result.Tasks[0].Status    # 'Executed', 'Skipped', 'Failed', 'Cached'
-$result.Tasks[0].Duration  # [TimeSpan]
-$result.Tasks[0].Cached    # $true / $false
+$result.Tasks | Select-Object Name, Status, Cached
 ```
 
 ### JSON Output
