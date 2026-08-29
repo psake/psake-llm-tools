@@ -443,6 +443,8 @@ else { Write-Host "✓ Syntax valid" -ForegroundColor Green }
 | Task skipped unexpectedly | May be cached — run with `-NoCache` or `Clear-PsakeCache` |
 | `default.ps1` not found | v5 removed `default.ps1` fallback — rename to `psakefile.ps1` |
 
+For psake situations not covered by these focused references, consult the external documentation index at [psake.dev/llms.txt](https://psake.dev/llms.txt). Use [psake.dev/llms-full.txt](https://psake.dev/llms-full.txt) when the complete documentation corpus is needed.
+
 ## References
 
 - **references/upgrading-to-v5.md** - Migration guide, caching for faster builds, structured output, testability APIs
