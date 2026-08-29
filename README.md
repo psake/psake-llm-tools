@@ -10,6 +10,17 @@ Contributions are welcome!
 | **psake** | Task-based build automation for .NET, Node.js, Docker, and more |
 | **PowerShellBuild** | Standardized build/test/publish tasks for PowerShell module development |
 
+## Versioning and changelogs
+
+The marketplace catalog and each skill version independently. Update
+`.claude-plugin/marketplace.json` `metadata.version` only when the catalog
+schema changes. Update a plugin's own `version` when that skill changes.
+
+- [Marketplace changelog](CHANGELOG.md) records catalog changes.
+- [psake changelog](plugins/psake/CHANGELOG.md) records psake skill changes.
+- [PowerShellBuild changelog](plugins/powershellbuild/CHANGELOG.md) records
+  PowerShellBuild skill changes.
+
 ## Installation
 
 ### Marketplace (recommended)
