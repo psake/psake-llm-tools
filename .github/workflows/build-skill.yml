@@ -3,102 +3,109 @@ name: Release Skill Packages
 on:
   workflow_dispatch:
     inputs:
+      skill:
+        description: Skill package to release
+        required: true
+        type: choice
+        options:
+          - psake
+          - powershellbuild
+          - all
       version:
-        description: "Release tag (e.g., v2.3.0)"
+        description: Release version without the v prefix (e.g., 1.1.0)
         required: true
         type: string
   push:
     tags:
       - "v*"
+      - "psake-v*"
+      - "powershellbuild-v*"
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      - name: Determine release tag
-        id: version
+      - name: Determine release
+        id: release
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SKILL="${{ github.event.inputs.skill }}"
             VERSION="${{ github.event.inputs.version }}"
+            TAG="${SKILL}-v${VERSION}"
+            if [ "$SKILL" = "all" ]; then
+              TAG="v${VERSION}"
+            fi
           else
-            VERSION="${{ github.ref_name }}"
+            TAG="${{ github.ref_name }}"
+            case "$TAG" in
+              psake-v*)
+                SKILL="psake"
+                VERSION="${TAG#psake-v}"
+                ;;
+              powershellbuild-v*)
+                SKILL="powershellbuild"
+                VERSION="${TAG#powershellbuild-v}"
+                ;;
+              v*)
+                SKILL="all"
+                VERSION="${TAG#v}"
+                ;;
+              *)
+                echo "Unsupported release tag: $TAG" >&2
+                exit 1
+                ;;
+            esac
           fi
+          echo "skill=$SKILL" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "VERSION: $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "## Releasing $SKILL $TAG" >> $GITHUB_STEP_SUMMARY
 
-      - name: Create psake.skill archive
+      - name: Create skill archives
         run: |
-          cd plugins/psake/skills/psake
-          zip -r psake.skill .
-          mv psake.skill "$OLDPWD"
-          cd "$OLDPWD"
-          ls -lh psake.skill
-
-      - name: Create powershellbuild.skill archive
-        run: |
-          cd plugins/powershellbuild/skills/powershellbuild
-          zip -r powershellbuild.skill .
-          mv powershellbuild.skill "$OLDPWD"
-          cd "$OLDPWD"
-          ls -lh powershellbuild.skill
+          if [ "${{ steps.release.outputs.skill }}" = "all" ]; then
+            SKILLS="psake powershellbuild"
+          else
+            SKILLS="${{ steps.release.outputs.skill }}"
+          fi
+          for skill in $SKILLS; do
+            (
+              cd "plugins/$skill/skills/$skill"
+              zip -r "$GITHUB_WORKSPACE/$skill.skill" .
+            )
+          done
 
       - name: Upload skill artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: skill-packages
+          name: ${{ steps.release.outputs.skill }}-skill-packages
           path: "*.skill"
           retention-days: 90
-
-      - name: Display package info
-        run: |
-          echo "## Skill Packages Created" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          for skill in *.skill; do
-            echo "### $skill" >> $GITHUB_STEP_SUMMARY
-            echo "**Size:** $(du -h $skill | cut -f1)" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            unzip -l $skill >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          done
-
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: psake-tools ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: ${{ steps.release.outputs.skill }} ${{ steps.release.outputs.tag }}
           draft: false
           prerelease: false
           files: "*.skill"
           body: |
-            ## psake-tools Skill Packages
+            ## psake Skill Packages
 
-            This release contains Claude skill packages for the psake ecosystem.
+            This release contains the selected Claude skill package or packages.
 
-            ### Skills Included
-
-            | Skill | Description |
-            |-------|-------------|
-            | `psake.skill` | psake build automation for .NET, Node.js, Docker, and more |
-            | `powershellbuild.skill` | PowerShellBuild standardized tasks for PowerShell module development |
-
-            ### Installation
-
-            **Marketplace (recommended):** Add the marketplace in Claude Code:
+            **Marketplace:** Add the marketplace in Claude Code:
             ```
             /plugin marketplace add https://github.com/psake/psake-llm-tools
             ```
-            Then install individual plugins with `/plugin install`.
 
             **Direct download:** Download a `.skill` file and upload it to Claude.
           generate_release_notes: true

@@ -87,6 +87,24 @@ Install individual plugins to test them:
 
 Follow the instructions in [TESTING.md](TESTING.md).
 
+
+### Releasing skill packages
+
+Release an individual skill by pushing a skill-specific tag:
+
+```powershell
+git tag -a psake-v1.1.0 -m "Release psake skill v1.1.0"
+git push origin psake-v1.1.0
+```
+
+Use `powershellbuild-vX.Y.Z` for the PowerShellBuild skill. Use `vX.Y.Z`
+only for a coordinated release that packages both skills. The marketplace
+catalog version changes only when its schema changes.
+
+You can also run **Release Skill Packages** manually, select `psake`,
+`powershellbuild`, or `all`, and supply the release version without its `v`
+prefix.
+
 ### Repository Structure
 
 ```
