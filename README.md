@@ -87,6 +87,19 @@ Install individual plugins to test them:
 
 Follow the instructions in [TESTING.md](TESTING.md).
 
+
+### Releasing skill packages
+
+To release one skill, update that skill's `version` in the `plugins` array of
+`.claude-plugin/marketplace.json`, then merge the change to `main`. The
+release workflow compares each plugin version with the preceding commit and
+creates a release only for the skills whose versions changed.
+
+For example, update the `psake` plugin version from `1.0.0` to `1.1.0` to
+publish `psake-v1.1.0` with `psake.skill`. Updating both plugin versions
+creates one release for each skill. The marketplace catalog `metadata.version`
+changes only when its schema changes and never triggers a skill release.
+
 ### Repository Structure
 
 ```
