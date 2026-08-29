@@ -335,7 +335,10 @@ The plan can also be passed to `Invoke-psake` without emitting the full result:
 
 ```powershell
 $result = Get-PsakeBuildPlan | Invoke-psake -Quiet
-$result.Success
+if (-not $result.Success) {
+    [Console]::Error.WriteLine($result.ErrorMessage)
+    exit 1
+}
 ```
 
 ### Test a Task in Isolation
